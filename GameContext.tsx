@@ -6,7 +6,7 @@ import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v5_data';
 const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
-const DIRECTORY_BLOB_ID = '1334657159740514304'; 
+const DIRECTORY_BLOB_ID = '1335335198031863808'; // Fresh, unpolluted directory ID
 
 interface AppState {
   user: UserProfile | null;
@@ -104,7 +104,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       newState = { ...state, user: updated, profiles: state.profiles.map(p => p.id === state.user?.id ? updated : p) };
       break;
     case 'JOIN_LOBBY':
-      const code = action.payload.lobbyCode || (action.payload.isHost ? generateLobbyCode() : "SYNCING...");
+      const code = action.payload.lobbyCode || (action.payload.isHost ? generateLobbyCode() : "SCANNING...");
       const me: Player = { id: state.user!.id, name: state.user!.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user!.avatarUrl, forcedRole: null };
       newState = { 
         ...state, 
@@ -114,17 +114,16 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       };
       break;
     case 'SYNC_GAME_STATE':
-        // MERGE LOGIC: Prevent Guest players from overriding Phase or Config
         if (state.isHost) {
+          // AUTHORITATIVE MERGE: Host pulls guest list and adds any new ones
           const remotePlayers = action.payload.players || [];
           const mergedPlayers = [...state.game.players];
           remotePlayers.forEach(rp => {
-            if (!mergedPlayers.find(mp => mp.id === rp.id)) {
-              mergedPlayers.push(rp);
-            }
+            if (!mergedPlayers.find(mp => mp.id === rp.id)) mergedPlayers.push(rp);
           });
           newState = { ...state, game: { ...state.game, players: mergedPlayers } };
         } else {
+          // GUEST: Strictly follow host state
           newState = { ...state, game: action.payload };
         }
         break;
@@ -139,23 +138,13 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       break;
     case 'KICK_PLAYER':
       if (!state.isHost) return state;
-      newState = { 
-        ...state, 
-        game: { 
-          ...state.game, 
-          players: state.game.players.filter(p => p.id !== action.payload),
-          kickedIds: [...(state.game.kickedIds || []), action.payload]
-        } 
-      };
+      newState = { ...state, game: { ...state.game, players: state.game.players.filter(p => p.id !== action.payload), kickedIds: [...(state.game.kickedIds || []), action.payload] } };
       break;
     case 'START_GAME':
       const startedPlayers = state.game.players.map(p => ({ ...p, status: PlayerStatus.ALIVE }));
       const { mafiaCount, doctorCount, copCount } = state.game.config;
       const unassignedIndices: number[] = [];
-      startedPlayers.forEach((p, idx) => {
-        if (p.forcedRole) p.role = p.forcedRole;
-        else unassignedIndices.push(idx);
-      });
+      startedPlayers.forEach((p, idx) => { if (p.forcedRole) p.role = p.forcedRole; else unassignedIndices.push(idx); });
       const shuffledUnassigned = [...unassignedIndices].sort(() => Math.random() - 0.5);
       let curMafia = startedPlayers.filter(p => p.role === Role.MAFIA).length;
       let curDoc = startedPlayers.filter(p => p.role === Role.DOCTOR).length;
@@ -172,16 +161,12 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       const chat: LogEntry = { id: Date.now().toString(), text: action.payload, type: 'chat', sender: state.user?.username, timestamp: Date.now() };
       newState = { ...state, game: { ...state.game, logs: [...state.game.logs, chat] } };
       break;
-    case 'FINISH_REVEAL':
-        newState = { ...state, game: { ...state.game, phase: GamePhase.NIGHT } };
-        break;
+    case 'FINISH_REVEAL': newState = { ...state, game: { ...state.game, phase: GamePhase.NIGHT } }; break;
     case 'NEXT_PHASE':
         const nextP = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
         newState = { ...state, game: { ...state.game, phase: nextP, dayCount: nextP === GamePhase.NIGHT ? state.game.dayCount + 1 : state.game.dayCount } };
         break;
-    case 'CAST_VOTE':
-      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } };
-      break;
+    case 'CAST_VOTE': newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } }; break;
     case 'SET_NIGHT_ACTION':
       const { role, targetId } = action.payload;
       const newActions = { ...state.game.nightActions };
@@ -190,18 +175,10 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       if (role === Role.COP) newActions.copTargetId = targetId;
       newState = { ...state, game: { ...state.game, nightActions: newActions } };
       break;
-    case 'ADMIN_SMITE':
-      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.DEAD } : p) } };
-      break;
-    case 'ADMIN_REVIVE':
-      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.ALIVE } : p) } };
-      break;
-    case 'ADMIN_FORCE_ROLE':
-      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.playerId ? { ...p, forcedRole: action.payload.role } : p) } };
-      break;
-    case 'UPDATE_CONFIG':
-      newState = { ...state, game: { ...state.game, config: { ...state.game.config, ...action.payload } } };
-      break;
+    case 'ADMIN_SMITE': newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.DEAD } : p) } }; break;
+    case 'ADMIN_REVIVE': newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.ALIVE } : p) } }; break;
+    case 'ADMIN_FORCE_ROLE': newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.playerId ? { ...p, forcedRole: action.payload.role } : p) } }; break;
+    case 'UPDATE_CONFIG': newState = { ...state, game: { ...state.game, config: { ...state.game.config, ...action.payload } } }; break;
     case 'DEV_COMMAND':
       if (action.payload.type === 'SKIP_PHASE') {
         const nextPhase = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
@@ -213,9 +190,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       } else if (action.payload.type === 'BROADCAST') {
         const broadcast: LogEntry = { id: `bc-${Date.now()}`, text: action.payload.text || '', type: 'alert', timestamp: Date.now() };
         newState = { ...state, game: { ...state.game, logs: [...state.game.logs, broadcast] } };
-      } else {
-        newState = state;
-      }
+      } else newState = state;
       break;
     case 'ADMIN_BLACKOUT': newState = { ...state, admin: { ...state.admin, blackoutTargetId: action.payload } }; break;
     case 'ADMIN_TOGGLE_PEEKER': newState = { ...state, admin: { ...state.admin, rolePeeker: !state.admin.rolePeeker } }; break;
@@ -239,15 +214,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncTimer = useRef<number | null>(null);
   const isSyncing = useRef(false);
 
-  // Auto-intercept Deep Link from URL
   useEffect(() => {
     if (!state.user || state.game.phase !== GamePhase.MENU) return;
     const urlParams = new URLSearchParams(window.location.search);
     const sid = urlParams.get('sid');
-    if (sid) {
-        console.log("SHADOW_PROTOCOL: Intercepting Frequency Serial:", sid);
-        dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, syncId: sid, lobbyCode: 'LINK' } });
-    }
+    if (sid) dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, syncId: sid, lobbyCode: 'LINK' } });
   }, [state.user, state.game.phase]);
 
   useEffect(() => {
@@ -260,70 +231,52 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (state.isHost) {
                 if (!state.syncId) {
                     const res = await fetch(SYNC_RELAY_URL, { 
-                      method: 'POST', 
-                      body: JSON.stringify(state.game), 
-                      headers: { 'Content-Type': 'application/json' } 
+                      method: 'POST', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } 
                     });
-                    const blobUrl = res.headers.get('Location');
-                    if (blobUrl) {
-                        const id = blobUrl.split('/').pop()!;
+                    const id = res.headers.get('Location')?.split('/').pop();
+                    if (id) {
                         dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
-                        
                         try {
                             const dirRes = await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`);
                             let directory: Record<string, string> = {};
                             if (dirRes.ok) directory = await dirRes.json();
                             directory[state.game.lobbyCode!] = id;
                             await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`, { 
-                                method: 'PUT', 
-                                body: JSON.stringify(directory), 
-                                headers: { 'Content-Type': 'application/json' } 
+                                method: 'PUT', body: JSON.stringify(directory), headers: { 'Content-Type': 'application/json' } 
                             });
-                        } catch (dirErr) { console.warn("Switchboard congested."); }
+                        } catch (e) { console.warn("Switchboard busy."); }
                     }
                 } else {
-                    // Host Master Push
                     const pullRes = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
                     if (pullRes.ok) {
-                        const remoteGame = await pullRes.json();
-                        dispatch({ type: 'SYNC_GAME_STATE', payload: remoteGame });
+                      const remote = await pullRes.json();
+                      dispatch({ type: 'SYNC_GAME_STATE', payload: remote });
                     }
                     await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { 
-                      method: 'PUT', 
-                      body: JSON.stringify(state.game), 
-                      headers: { 'Content-Type': 'application/json' } 
+                      method: 'PUT', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } 
                     });
                 }
             } else if (state.syncId) {
-                // Guest Sync
                 const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
                 if (res.ok) {
                     const remoteGame = await res.json();
+                    if (remoteGame.kickedIds?.includes(state.user?.id)) { dispatch({ type: 'LEAVE_LOBBY' }); return; }
                     
-                    if (remoteGame.kickedIds?.includes(state.user?.id)) {
-                        dispatch({ type: 'LEAVE_LOBBY' });
-                        alert("TERMINATED: Access revoked by Overseer.");
-                        return;
-                    }
-
+                    // Guest logic: If missing from player list, try to add myself
                     const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
-                    if (!meInRemote && state.user) {
-                       const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl, forcedRole: null };
-                       remoteGame.players.push(me);
+                    if (!meInRemote && state.user && remoteGame.phase === GamePhase.LOBBY) {
+                       remoteGame.players.push({ id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl, forcedRole: null });
                        await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { 
-                         method: 'PUT', 
-                         body: JSON.stringify(remoteGame), 
-                         headers: { 'Content-Type': 'application/json' } 
+                         method: 'PUT', body: JSON.stringify(remoteGame), headers: { 'Content-Type': 'application/json' } 
                        });
                     }
                     dispatch({ type: 'SYNC_GAME_STATE', payload: remoteGame });
                 }
             }
-        } catch (e) { console.error("Relay Drop."); }
-        finally { isSyncing.current = false; }
+        } catch (e) { console.error("Signal Lost."); } finally { isSyncing.current = false; }
     };
 
-    syncTimer.current = window.setInterval(performSync, 1500); 
+    syncTimer.current = window.setInterval(performSync, 1800); 
     return () => { if(syncTimer.current) clearInterval(syncTimer.current); };
   }, [state.game.lobbyCode, state.isHost, state.syncId, state.game, state.game.phase]);
 
@@ -334,8 +287,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         model: 'gemini-3-flash-preview',
         contents: `You are ${botName}, a noir 1920s mafia character. Send a short, one-sentence cryptic chat message.`,
       });
-      dispatch({ type: 'SEND_CHAT', payload: res.text || "Listen to the rain." });
-    } catch (e) { console.error("AI Silence."); }
+      dispatch({ type: 'SEND_CHAT', payload: res.text || "Dust on the lens." });
+    } catch (e) {}
   };
 
   return <GameContext.Provider value={{ state, dispatch, generateBotChat }}>{children}</GameContext.Provider>;

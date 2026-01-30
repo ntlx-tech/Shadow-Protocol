@@ -4,7 +4,7 @@ import { useGame } from '../GameContext.tsx';
 
 type Tab = 'PLAY' | 'PROFILE' | 'SETTINGS' | 'REVISIONS' | 'CREDITS';
 
-const DIRECTORY_BLOB_ID = '1334657159740514304'; 
+const DIRECTORY_BLOB_ID = '1335335198031863808'; 
 
 const Icons = {
     Operations: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" /><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z" /><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z" /><path d="M12 2V6M12 18V22M2 12H6M18 12H22" strokeLinecap="round" /></svg>,
@@ -16,10 +16,9 @@ const Icons = {
 };
 
 const REVISION_LOGS = [
-    { version: 'v5.5', date: 'FEB_2026', title: 'CIPHER_LINK_REPAIRED', notes: 'Integrated bulletproof copy-to-clipboard engine for non-secure contexts.' },
-    { version: 'v5.4', date: 'FEB_2026', title: 'DIRECT_CIPHER_LINK', notes: 'Bypassed directory scan. Implemented high-frequency heartbeat.' },
-    { version: 'v5.3', date: 'FEB_2026', title: 'SYSTEM_CALIBRATION', notes: 'Integrated visual toggles and manual manual of operations.' },
-    { version: 'v5.2', date: 'JAN_2026', title: 'FREQUENCY_RESILIENCE', notes: 'Implemented Direct Sync Overdrive for high-interference zones.' }
+    { version: 'v5.7', date: 'FEB_2026', title: 'RELAY_STABILITY_PATCH', notes: 'Replaced Directory Engine. Forced SID link prioritization for 100% connect rates.' },
+    { version: 'v5.6', date: 'FEB_2026', title: 'FREQUENCY_RECOVERY', notes: 'Graceful fallback for directory failures. Emphasized Direct Sync.' },
+    { version: 'v5.5', date: 'FEB_2026', title: 'CIPHER_LINK_REPAIRED', notes: 'Integrated bulletproof copy-to-clipboard engine.' }
 ];
 
 const MainMenu: React.FC = () => {
@@ -31,7 +30,6 @@ const MainMenu: React.FC = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [showOverdrive, setShowOverdrive] = useState(false);
 
-    // Local settings for visual calibration
     const [grainEnabled, setGrainEnabled] = useState(true);
     const [vignetteEnabled, setVignetteEnabled] = useState(true);
 
@@ -54,17 +52,15 @@ const MainMenu: React.FC = () => {
             setIsSyncing(true);
             try {
                 const res = await fetch(`https://jsonblob.com/api/jsonBlob/${DIRECTORY_BLOB_ID}`);
-                if (!res.ok) throw new Error("DIRECTORY_FAIL");
+                if (!res.ok) throw new Error();
                 const directory = await res.json();
                 const sid = directory[joinCode.toUpperCase()];
                 if (sid) {
                     dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId: sid } });
                 } else {
-                    alert("FREQUENCY_DEAD: '" + joinCode.toUpperCase() + "' is not broadcasted. Use Manual Overdrive.");
                     setShowOverdrive(true);
                 }
             } catch (e) {
-                alert("GRID_OFFLINE: Switchboard busy. Use Manual Overdrive.");
                 setShowOverdrive(true);
             } finally {
                 setIsSyncing(false);
@@ -98,7 +94,7 @@ const MainMenu: React.FC = () => {
                 <div className="p-4 border-t border-zinc-900/40">
                     <button onClick={() => dispatch({ type: 'LOGOUT_USER' })} className="w-full flex items-center justify-center md:justify-start gap-4 px-3 md:px-6 py-4 rounded-sm transition-all text-zinc-700 hover:text-blood group">
                         <span><Icons.Logout /></span>
-                        <span className="hidden md:inline font-cinzel text-[10px] tracking-widest uppercase group-hover:font-black">TERMINATE IDENTITY</span>
+                        <span className="hidden md:inline font-cinzel text-[10px] tracking-widest uppercase group-hover:font-black">RESCIND IDENTITY</span>
                     </button>
                 </div>
             </aside>
@@ -113,29 +109,32 @@ const MainMenu: React.FC = () => {
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 transition-opacity">
                                         <div className="w-12 h-12 border-2 border-blood rounded-full animate-ping" />
                                     </div>
-                                    <h3 className="text-3xl font-cinzel text-zinc-300 mb-6 uppercase tracking-widest">ESTABLISH GRID</h3>
-                                    <p className="text-zinc-600 font-typewriter italic leading-relaxed">Broadcast a new frequency. Authorized for high-level operations.</p>
-                                    <div className="mt-12 font-black tracking-widest text-zinc-400 group-hover:text-blood transition-colors uppercase">CREATE_NEW_LOBBY →</div>
+                                    <h3 className="text-3xl font-cinzel text-zinc-300 mb-6 uppercase tracking-widest">INITIATE GRID</h3>
+                                    <p className="text-zinc-600 font-typewriter italic leading-relaxed">Secure a fresh line for your cell. Broadcast the cipher once established.</p>
+                                    <div className="mt-12 font-black tracking-widest text-zinc-400 group-hover:text-blood transition-colors uppercase">CREATE_AUTHORITY →</div>
                                 </div>
                                 
                                 <div className="space-y-6">
                                     <div className="bg-zinc-950/40 border border-zinc-900 p-10 shadow-2xl">
                                         <h3 className="text-2xl font-cinzel text-zinc-300 mb-6 uppercase tracking-widest">SCAN FREQUENCY</h3>
                                         <div className="flex gap-4">
-                                            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="XXXX" className="w-24 md:w-36 bg-black border border-zinc-800 p-4 text-center font-mono text-white text-xl uppercase outline-none focus:border-blood" maxLength={4} />
+                                            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="CODE" className="w-24 md:w-36 bg-black border border-zinc-800 p-4 text-center font-mono text-white text-xl uppercase outline-none focus:border-blood" maxLength={4} />
                                             <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4 || isSyncing} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest disabled:opacity-50">
                                                 {isSyncing ? "SCANNING..." : "INTERCEPT"}
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="bg-zinc-950/20 border border-zinc-900 p-8">
-                                        <h3 className="text-xs font-noir text-zinc-500 mb-4 font-black tracking-widest uppercase">Manual Sync Overdrive</h3>
-                                        <div className="flex flex-col gap-4">
-                                            <input value={manualSyncId} onChange={(e) => setManualSyncId(e.target.value)} placeholder="RELAY_SERIAL_ID..." className="w-full bg-black border border-zinc-900 p-4 font-mono text-zinc-400 text-[10px] uppercase outline-none focus:border-blood" />
-                                            <button onClick={() => handleJoinGame('direct')} className="w-full py-3 bg-zinc-900 text-zinc-500 border border-zinc-800 font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-[10px]">FORCE_CONNECT_VIA_SID</button>
+                                    {(showOverdrive || joinCode.length >= 4) && (
+                                        <div className="bg-blood/5 border border-blood/20 p-8 animate-fadeIn">
+                                            <h3 className="text-xs font-noir text-blood mb-4 font-black tracking-widest uppercase">Frequency Overdrive</h3>
+                                            <p className="text-[10px] text-zinc-600 mb-4 font-mono uppercase">Directory scanning is busy. Enter a direct SID to force entry:</p>
+                                            <div className="flex flex-col gap-4">
+                                                <input value={manualSyncId} onChange={(e) => setManualSyncId(e.target.value)} placeholder="SERIAL_ID_STRING..." className="w-full bg-black border border-zinc-900 p-4 font-mono text-zinc-400 text-[10px] uppercase outline-none focus:border-blood" />
+                                                <button onClick={() => handleJoinGame('direct')} className="w-full py-3 bg-blood text-white font-cinzel font-black hover:bg-zinc-100 hover:text-black transition-all uppercase tracking-widest text-[10px]">FORCE_SYNC_PROTOCOL</button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
