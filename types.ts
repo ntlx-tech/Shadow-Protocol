@@ -72,4 +72,5 @@ export interface GameState {
     doctorTargetId: string | null;
     copTargetId: string | null;
   };
+  kickedIds?: string[];
 }

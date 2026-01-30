@@ -53,6 +53,7 @@ const initialState: AppState = {
     logs: [],
     config: { mafiaCount: 2, doctorCount: 1, copCount: 1 },
     nightActions: { mafiaTargetId: null, doctorTargetId: null, copTargetId: null },
+    kickedIds: [],
   },
   admin: { rolePeeker: false, godMode: false, blackoutTargetId: null, devRevealAll: false },
 };
@@ -67,6 +68,7 @@ type Action =
   | { type: 'LEAVE_LOBBY' }
   | { type: 'RESET_GAME' }
   | { type: 'ADD_BOT' }
+  | { type: 'KICK_PLAYER'; payload: string }
   | { type: 'START_GAME' }
   | { type: 'FINISH_REVEAL' }
   | { type: 'SEND_CHAT'; payload: string }
@@ -109,7 +111,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
         ...state, 
         isHost: action.payload.isHost,
         syncId: action.payload.syncId || null,
-        game: { ...state.game, lobbyCode: code, phase: GamePhase.LOBBY, players: [me], logs: [] } 
+        game: { ...state.game, lobbyCode: code, phase: GamePhase.LOBBY, players: [me], logs: [], kickedIds: [] } 
       };
       break;
     case 'SYNC_GAME_STATE':
@@ -123,6 +125,17 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       const bName = BOT_NAMES.find(n => !state.game.players.some(p => p.name === n)) || "Agent X";
       const bot: Player = { id: `bot-${Date.now()}`, name: bName, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: true, avatarUrl: `https://picsum.photos/seed/${bName}/100/100`, forcedRole: null };
       newState = { ...state, game: { ...state.game, players: [...state.game.players, bot] } };
+      break;
+    case 'KICK_PLAYER':
+      if (!state.isHost) return state;
+      newState = { 
+        ...state, 
+        game: { 
+          ...state.game, 
+          players: state.game.players.filter(p => p.id !== action.payload),
+          kickedIds: [...(state.game.kickedIds || []), action.payload]
+        } 
+      };
       break;
     case 'START_GAME':
       const players = state.game.players.map(p => ({ ...p, status: PlayerStatus.ALIVE }));
@@ -263,6 +276,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
                 if (res.ok) {
                     const remoteGame = await res.json();
+                    
+                    // Check if I was kicked
+                    if (remoteGame.kickedIds?.includes(state.user?.id)) {
+                        dispatch({ type: 'LEAVE_LOBBY' });
+                        alert("TERMINATED: You have been removed from this frequency by the Overseer.");
+                        return;
+                    }
+
                     const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
                     if (!meInRemote && state.user) {
                        const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl, forcedRole: null };

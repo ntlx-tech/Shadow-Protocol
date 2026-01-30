@@ -36,6 +36,12 @@ const Lobby: React.FC = () => {
       setChatMsg('');
   };
 
+  const handleKick = (playerId: string) => {
+    if (confirm("KICK SUBJECT: Are you sure you want to remove this agent from the frequency?")) {
+      dispatch({ type: 'KICK_PLAYER', payload: playerId });
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black w-full overflow-hidden">
       <AdminPanel />
@@ -68,7 +74,7 @@ const Lobby: React.FC = () => {
                 {(isAdmin || isDeveloper) && (
                     <button onClick={() => dispatch({ type: 'ADD_BOT' })} className="w-full py-4 border border-zinc-800 text-zinc-600 hover:text-white transition-all text-[10px] font-mono tracking-widest uppercase">+ INJECT ARTIFICIAL AGENT</button>
                 )}
-                <button onClick={() => dispatch({ type: 'LEAVE_LOBBY' })} className="w-full py-4 border border-zinc-900 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase">
+                <button onClick={() => dispatch({ type: 'LEAVE_LOBBY' })} className="w-full py-4 border border-zinc-800 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase">
                     [ ABORT FREQUENCY ]
                 </button>
               </div>
@@ -94,6 +100,14 @@ const Lobby: React.FC = () => {
                                 <img src={p.avatarUrl} className={`w-12 h-12 grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
                                 <div className={`text-[12px] font-mono tracking-widest uppercase ${p.id === state.user?.id ? 'text-white' : 'text-zinc-600'}`}>{p.name}</div>
                             </div>
+                            {state.isHost && p.id !== state.user?.id && (
+                                <button 
+                                    onClick={() => handleKick(p.id)}
+                                    className="px-3 py-1 border border-zinc-900 text-zinc-800 hover:text-blood hover:border-blood text-[8px] font-mono tracking-widest uppercase transition-all"
+                                >
+                                    KICK
+                                </button>
+                            )}
                         </div>
                     ))}
                   </div>

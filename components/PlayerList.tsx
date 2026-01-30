@@ -12,6 +12,16 @@ const PlayerList: React.FC<PlayerListProps> = ({ onAction }) => {
   const { rolePeeker, devRevealAll } = state.admin;
   const currentUser = players.find(p => p.id === state.user?.id);
   
+  // Calculate vote tally for the current phase
+  const voteTally = players.reduce((acc, p) => {
+    if (p.voteTargetId) {
+      acc[p.voteTargetId] = (acc[p.voteTargetId] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const maxVotes = Math.max(...Object.values(voteTally), 0);
+
   const canInteract = (targetPlayer: typeof players[0]) => {
       if (currentUser?.status !== PlayerStatus.ALIVE) return false;
       if (targetPlayer.status !== PlayerStatus.ALIVE) return false;
@@ -42,10 +52,15 @@ const PlayerList: React.FC<PlayerListProps> = ({ onAction }) => {
         const interactable = canInteract(player);
         const isDead = player.status === PlayerStatus.DEAD || player.status === PlayerStatus.EJECTED;
         const reveal = rolePeeker || devRevealAll;
+        const votes = voteTally[player.id] || 0;
+        const isLeadingSuspect = phase === GamePhase.VOTING && votes > 0 && votes === maxVotes;
 
         return (
             <div key={player.id} className={`relative transition-all duration-700 ${isDead ? 'opacity-20 grayscale scale-95' : 'opacity-100'} ${phase === GamePhase.VOTING && !selected && !isDead ? 'opacity-40 hover:opacity-100' : ''}`}>
-                <div onClick={() => interactable && onAction(player.id)} className={`relative flex items-center gap-4 p-4 border transition-all duration-500 cursor-pointer overflow-hidden ${selected ? 'bg-zinc-900/90 border-blood shadow-[0_0_25px_rgba(138,3,3,0.4)]' : 'bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700'}`}>
+                <div 
+                    onClick={() => interactable && onAction(player.id)} 
+                    className={`relative flex items-center gap-4 p-4 border transition-all duration-500 cursor-pointer overflow-hidden ${selected ? 'bg-zinc-900/90 border-blood shadow-[0_0_25px_rgba(138,3,3,0.4)]' : 'bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700'} ${isLeadingSuspect ? 'border-blood/60 ring-1 ring-blood/20' : ''}`}
+                >
                     <div className="relative w-14 h-14 shrink-0 p-0.5 bg-zinc-900 flex items-center justify-center">
                         <img src={player.avatarUrl} className={`w-full h-full object-cover filter brightness-90 contrast-125 ${isDead ? 'grayscale' : 'grayscale-0'}`} alt="P" />
                         {reveal && (
@@ -55,10 +70,28 @@ const PlayerList: React.FC<PlayerListProps> = ({ onAction }) => {
                         )}
                         {isDead && <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-bold text-red-600 text-[8px] border border-red-900 bg-black/40 rotate-12">SILENCED</div>}
                     </div>
+                    
                     <div className="flex-1 min-w-0">
                         <div className={`font-cinzel text-base tracking-widest truncate ${selected ? 'text-zinc-100 font-bold' : 'text-zinc-500'}`}>{player.name.toUpperCase()}</div>
                         <div className="text-[9px] text-zinc-700 font-mono tracking-widest uppercase mt-1">Status: {player.status === PlayerStatus.ALIVE ? 'VERIFIED' : 'TERMINATED'}</div>
                     </div>
+
+                    {/* Vote Tally Indicator */}
+                    {phase === GamePhase.VOTING && votes > 0 && (
+                        <div className={`flex flex-col items-center justify-center px-3 py-1 border border-zinc-800 bg-black/40 animate-fadeIn ${isLeadingSuspect ? 'border-blood' : ''}`}>
+                             <div className="text-[8px] font-mono text-zinc-600 uppercase tracking-tighter mb-0.5">Votes</div>
+                             <div className={`text-xl font-noir font-black ${isLeadingSuspect ? 'text-blood shadow-[0_0_10px_rgba(138,3,3,0.3)]' : 'text-zinc-400'}`}>
+                                 {votes}
+                             </div>
+                        </div>
+                    )}
+                    
+                    {/* Visual Stamp for Leading Suspect */}
+                    {isLeadingSuspect && (
+                        <div className="absolute -right-8 -bottom-2 opacity-10 pointer-events-none rotate-[-25deg]">
+                            <div className="border-4 border-blood text-blood font-noir font-black text-4xl px-4 py-1">SUSPECT</div>
+                        </div>
+                    )}
                 </div>
             </div>
         );

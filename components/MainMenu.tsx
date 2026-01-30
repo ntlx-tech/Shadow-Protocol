@@ -1,9 +1,18 @@
 
 import React, { useState } from 'react';
 import { useGame } from '../GameContext.tsx';
-import { Role } from '../types.ts';
+import { Role, UserProfile } from '../types.ts';
 
 type Tab = 'PLAY' | 'PROFILE' | 'SETTINGS' | 'REVISIONS' | 'CREDITS';
+
+const NOIR_BANNERS = [
+    { id: 'rain', label: 'CHICAGO_STREETS', url: 'https://images.unsplash.com/photo-1533282960533-51328aa49826?auto=format&fit=crop&q=80&w=1600' },
+    { id: 'office', label: 'THE_BUREAU', url: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&q=80&w=1600' },
+    { id: 'car', label: 'GETAWAY_VEHICLE', url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=1600' },
+    { id: 'smoke', label: 'JAZZ_LOUNGE', url: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=1600' },
+    { id: 'fog', label: 'CITY_LIMITS', url: 'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&q=80&w=1600' },
+    { id: 'whiskey', label: 'SAFEHOUSE', url: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1600' }
+];
 
 const Icons = {
     Operations: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" /><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z" /><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z" /><path d="M12 2V6M12 18V22M2 12H6M18 12H22" strokeLinecap="round" /></svg>,
@@ -56,6 +65,10 @@ const MainMenu: React.FC = () => {
                 setIsSyncing(false);
             }
         }
+    };
+
+    const updateBanner = (url: string) => {
+        dispatch({ type: 'UPDATE_PROFILE', payload: { bannerUrl: url } });
     };
 
     const sidebarItems: { id: Tab, label: string, icon: React.ReactNode }[] = [
@@ -129,21 +142,83 @@ const MainMenu: React.FC = () => {
                     )}
 
                     {activeTab === 'PROFILE' && (
-                        <div className="space-y-12 animate-fadeIn max-w-3xl">
+                        <div className="space-y-12 animate-fadeIn max-w-4xl">
                              <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">DOSSIER</h2>
-                             <div className="bg-paper p-10 border-4 border-zinc-900 shadow-2xl rotate-1 relative">
-                                <div className="absolute top-4 right-6 font-mono text-zinc-800 text-[10px] uppercase">File Ref: {user.id.split('-')[1]}</div>
-                                <div className="flex flex-col md:flex-row gap-10 items-center md:items-start">
-                                    <div className="w-48 h-64 bg-zinc-900 border-2 border-zinc-800 p-1 grayscale contrast-125 brightness-75">
-                                        <img src={user.avatarUrl} className="w-full h-full object-cover" alt="Subject" />
-                                    </div>
-                                    <div className="flex-1 space-y-6">
-                                        <div>
-                                            <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-1">Subject Name</div>
-                                            <div className="text-4xl font-noir font-black text-zinc-900 uppercase border-b border-zinc-300">{user.username}</div>
+                             
+                             <div className="bg-paper border-4 border-zinc-900 shadow-2xl relative overflow-hidden">
+                                {/* Steam-style Banner Display */}
+                                <div className="h-64 md:h-80 w-full relative">
+                                    <div className="absolute inset-0 bg-black/40 z-10" />
+                                    <img src={user.bannerUrl} className="w-full h-full object-cover filter grayscale contrast-125 brightness-75 transition-all duration-700" alt="Banner" />
+                                    <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-paper to-transparent z-20" />
+                                </div>
+
+                                <div className="p-10 pt-0 relative z-30 -mt-20">
+                                    <div className="flex flex-col md:flex-row gap-10 items-end">
+                                        <div className="w-48 h-64 bg-zinc-900 border-4 border-paper p-1 grayscale contrast-125 shadow-2xl">
+                                            <img src={user.avatarUrl} className="w-full h-full object-cover" alt="Subject" />
                                         </div>
-                                        <div className="font-typewriter text-zinc-700 italic text-sm border-l-2 border-zinc-300 pl-4 py-2">"{user.bio}"</div>
+                                        <div className="flex-1 space-y-4 pb-4">
+                                            <div className="absolute top-0 right-10 font-mono text-zinc-800 text-[10px] uppercase tracking-[0.3em]">File Ref: {user.id.split('-')[1]}</div>
+                                            <div>
+                                                <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-1">Subject Name</div>
+                                                <div className="text-5xl font-noir font-black text-zinc-900 uppercase border-b-2 border-zinc-300 drop-shadow-sm">{user.username}</div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {user.badges.map(b => (
+                                                    <span key={b} className="bg-zinc-900 text-white text-[9px] px-2 py-1 font-black tracking-widest uppercase">{b}</span>
+                                                ))}
+                                                {user.isAdmin && <span className="bg-blood text-white text-[9px] px-2 py-1 font-black tracking-widest uppercase shadow-sm">OVERSEER</span>}
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-12 border-t border-zinc-200 pt-10">
+                                        <div className="space-y-6">
+                                            <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Personal Statement</div>
+                                            <div className="font-typewriter text-zinc-700 italic text-sm border-l-4 border-zinc-300 pl-6 py-2 leading-relaxed">
+                                                "{user.bio}"
+                                            </div>
+                                        </div>
+                                        <div className="space-y-6">
+                                            <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Service Record</div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="bg-zinc-100 p-6 border border-zinc-200">
+                                                    <div className="text-[10px] font-mono text-zinc-400 uppercase">Successful Ops</div>
+                                                    <div className="text-3xl font-noir text-zinc-900 font-bold">{user.wins}</div>
+                                                </div>
+                                                <div className="bg-zinc-100 p-6 border border-zinc-200">
+                                                    <div className="text-[10px] font-mono text-zinc-400 uppercase">Total Missions</div>
+                                                    <div className="text-3xl font-noir text-zinc-900 font-bold">{user.matches}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                             </div>
+
+                             {/* Operational Environments (Banner Selector) */}
+                             <div className="space-y-6">
+                                <h3 className="text-[10px] font-mono text-zinc-600 uppercase tracking-[0.5em] border-b border-zinc-900 pb-2">Operational Environments</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                                    {NOIR_BANNERS.map((banner) => (
+                                        <button 
+                                            key={banner.id} 
+                                            onClick={() => updateBanner(banner.url)}
+                                            className={`group relative h-24 border-2 transition-all overflow-hidden ${user.bannerUrl === banner.url ? 'border-blood scale-105 shadow-[0_0_15px_rgba(138,3,3,0.5)]' : 'border-zinc-800 hover:border-zinc-500'}`}
+                                        >
+                                            <img src={banner.url} className={`w-full h-full object-cover grayscale contrast-125 ${user.bannerUrl === banner.url ? 'brightness-100' : 'brightness-50 group-hover:brightness-75'}`} alt={banner.label} />
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                                                <span className="text-[8px] font-mono text-white tracking-widest uppercase">DEPLOY</span>
+                                            </div>
+                                            {user.bannerUrl === banner.url && (
+                                                <div className="absolute top-2 right-2 w-2 h-2 bg-blood rounded-full shadow-[0_0_5px_#8a0303]" />
+                                            )}
+                                            <div className="absolute bottom-1 left-1 bg-black/60 px-1 py-0.5">
+                                                <span className="text-[7px] font-mono text-zinc-300 tracking-tighter uppercase">{banner.label}</span>
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
                              </div>
                         </div>
