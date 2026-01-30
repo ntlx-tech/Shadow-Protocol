@@ -2,6 +2,7 @@
 import React, { useState, memo } from 'react';
 import { useGame } from '../GameContext';
 import { PlayerStatus, Role } from '../types';
+import { RoleIcon } from './Icons.tsx';
 
 const AdminPanel: React.FC = () => {
   const { state, dispatch } = useGame();
@@ -124,9 +125,10 @@ const AdminPanel: React.FC = () => {
                                             <button 
                                                 key={r} 
                                                 onClick={() => handleForceRole(p.id, p.forcedRole === r ? null : r)}
-                                                className={`text-[8px] font-mono p-1 border uppercase transition-all ${p.forcedRole === r ? 'bg-blood border-blood text-white' : 'bg-black border-zinc-800 text-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}
+                                                className={`w-8 h-8 flex items-center justify-center border transition-all ${p.forcedRole === r ? 'bg-blood border-blood text-white' : 'bg-black border-zinc-800 text-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}
+                                                title={r}
                                             >
-                                                {r.substring(0, 3)}
+                                                <RoleIcon role={r} className="w-4 h-4" />
                                             </button>
                                         ))}
                                     </div>

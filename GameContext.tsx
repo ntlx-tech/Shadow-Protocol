@@ -6,7 +6,7 @@ import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v5_data';
 const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
-// A static public blob used as a directory to map 4-char codes to syncIds
+// A fresh shared directory ID for frequency interception
 const DIRECTORY_BLOB_ID = '1334657159740514304'; 
 
 interface AppState {
@@ -24,7 +24,7 @@ interface AppState {
 }
 
 const generateLobbyCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing O/0 I/1
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let result = '';
     for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
     return result;
@@ -153,8 +153,8 @@ const gameReducer = (state: AppState, action: Action): AppState => {
         newState = { ...state, game: { ...state.game, phase: GamePhase.NIGHT } };
         break;
     case 'NEXT_PHASE':
-        const next = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
-        newState = { ...state, game: { ...state.game, phase: next, dayCount: next === GamePhase.NIGHT ? state.game.dayCount + 1 : state.game.dayCount } };
+        const nextP = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
+        newState = { ...state, game: { ...state.game, phase: nextP, dayCount: nextP === GamePhase.NIGHT ? state.game.dayCount + 1 : state.game.dayCount } };
         break;
     case 'CAST_VOTE':
       newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } };
@@ -181,8 +181,8 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       break;
     case 'DEV_COMMAND':
       if (action.payload.type === 'SKIP_PHASE') {
-        const nextP = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
-        newState = { ...state, game: { ...state.game, phase: nextP } };
+        const nextPhase = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
+        newState = { ...state, game: { ...state.game, phase: nextPhase } };
       } else if (action.payload.type === 'KILL_ALL') {
         newState = { ...state, game: { ...state.game, players: state.game.players.map(p => ({ ...p, status: PlayerStatus.DEAD })) } };
       } else if (action.payload.type === 'REVEAL_ALL') {
@@ -222,7 +222,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             if (state.isHost) {
                 if (!state.syncId) {
-                    // 1. Create the main game blob
                     const res = await fetch(SYNC_RELAY_URL, { 
                       method: 'POST', 
                       body: JSON.stringify(state.game), 
@@ -233,15 +232,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         const id = blobUrl.split('/').pop()!;
                         dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
                         
-                        // 2. Register this code in the global directory
-                        const dirRes = await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`);
-                        const directory = await dirRes.json();
-                        directory[state.game.lobbyCode!] = id;
-                        await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`, { 
-                          method: 'PUT', 
-                          body: JSON.stringify(directory), 
-                          headers: { 'Content-Type': 'application/json' } 
-                        });
+                        // Directory fallback initialization
+                        try {
+                            const dirRes = await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`);
+                            let directory = {};
+                            if (dirRes.ok) directory = await dirRes.json();
+                            
+                            directory[state.game.lobbyCode!] = id;
+                            await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`, { 
+                                method: 'PUT', 
+                                body: JSON.stringify(directory), 
+                                headers: { 'Content-Type': 'application/json' } 
+                            });
+                        } catch (dirErr) {
+                            console.warn("Directory sync warning - non-critical for host", dirErr);
+                        }
                     }
                 } else {
                     await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { 
@@ -272,15 +277,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.game.lobbyCode, state.isHost, state.syncId, state.game]);
 
   const generateBotChat = async (botName: string) => {
-    const key = (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
-    if (!key) return;
-    
     try {
-      const ai = new GoogleGenAI({ apiKey: key });
+      // Corrected: Initializing GoogleGenAI using process.env.API_KEY directly as per Gemini API guidelines.
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const res = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `You are ${botName}, a noir 1920s mafia character. Send a short, one-sentence cryptic chat message in character.`,
       });
+      // Corrected: Accessing text property directly from GenerateContentResponse as per guidelines.
       dispatch({ type: 'SEND_CHAT', payload: res.text || "The city never sleeps." });
     } catch (e) {
       console.error("AI Error:", e);

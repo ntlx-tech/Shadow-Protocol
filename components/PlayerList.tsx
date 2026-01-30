@@ -1,6 +1,8 @@
+
 import React from 'react';
 import { useGame } from '../GameContext';
 import { PlayerStatus, Role, GamePhase } from '../types';
+import { RoleIcon } from './Icons.tsx';
 
 interface PlayerListProps { onAction: (targetId: string) => void; }
 
@@ -44,9 +46,13 @@ const PlayerList: React.FC<PlayerListProps> = ({ onAction }) => {
         return (
             <div key={player.id} className={`relative transition-all duration-700 ${isDead ? 'opacity-20 grayscale scale-95' : 'opacity-100'} ${phase === GamePhase.VOTING && !selected && !isDead ? 'opacity-40 hover:opacity-100' : ''}`}>
                 <div onClick={() => interactable && onAction(player.id)} className={`relative flex items-center gap-4 p-4 border transition-all duration-500 cursor-pointer overflow-hidden ${selected ? 'bg-zinc-900/90 border-blood shadow-[0_0_25px_rgba(138,3,3,0.4)]' : 'bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700'}`}>
-                    <div className="relative w-14 h-14 shrink-0 p-0.5 bg-zinc-900">
+                    <div className="relative w-14 h-14 shrink-0 p-0.5 bg-zinc-900 flex items-center justify-center">
                         <img src={player.avatarUrl} className={`w-full h-full object-cover filter brightness-90 contrast-125 ${isDead ? 'grayscale' : 'grayscale-0'}`} alt="P" />
-                        {reveal && <div className="absolute -top-2 -right-2 z-20"><span className="bg-zinc-100 text-black text-[8px] font-black px-1 py-0.5 shadow-md uppercase">{player.role}</span></div>}
+                        {reveal && (
+                          <div className="absolute -top-1 -right-1 z-20 bg-zinc-100 text-black p-0.5 shadow-md rounded-sm">
+                            <RoleIcon role={player.role} className="w-3 h-3" />
+                          </div>
+                        )}
                         {isDead && <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-bold text-red-600 text-[8px] border border-red-900 bg-black/40 rotate-12">SILENCED</div>}
                     </div>
                     <div className="flex-1 min-w-0">
