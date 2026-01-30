@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useGame } from '../GameContext';
 
@@ -40,10 +41,10 @@ const MainMenu: React.FC = () => {
     ];
 
     const PATCH_NOTES = [
+        { version: '1.0.5', date: '2025-05-18', title: 'NEURAL LINK DEPLOYMENT', changes: ['Integrated Google Gemini AI for dynamic bot chat', 'Added Environment Variable support for API security', 'Finalized Vercel deployment configurations'] },
         { version: '1.0.4', date: '2025-05-15', title: 'SOFT LAUNCH POLISH', changes: ['Removed Mafia slider from Lobby (moved to Admin)', 'Fixed Admin Panel flickering and re-render stutter', 'Enabled persistent storage for user accounts and profiles', 'Added Revisions tab to the main terminal'] },
         { version: '1.0.3', date: '2025-05-10', title: 'ARCHITECT OMNIPOTENCE', changes: ['Root Terminal added for Developers', 'Global Role Override in Lobby', 'Broadcast Command refined'] },
-        { version: '1.0.2', date: '2025-05-05', title: 'DOSSIER EXPANSION', changes: ['Badges system added', 'Cinematic banner updates', 'Profile scrolling fixes'] },
-        { version: '1.0.1', date: '2025-05-01', title: 'INITIAL PROTOCOL', changes: ['Core game logic deployed', 'Noir aesthetic established', 'Basic Admin console integrated'] }
+        { version: '1.0.2', date: '2025-05-05', title: 'DOSSIER EXPANSION', changes: ['Badges system added', 'Cinematic banner updates', 'Profile scrolling fixes'] }
     ];
 
     return (
@@ -62,7 +63,7 @@ const MainMenu: React.FC = () => {
                     ))}
                 </nav>
                 <div className="p-4 md:p-8 border-t border-zinc-900/40 bg-black/20 text-center">
-                    <div className="text-[8px] font-mono text-zinc-700 tracking-[0.3em] uppercase italic">BUILD: 2025_05_15_V4</div>
+                    <div className="text-[8px] font-mono text-zinc-700 tracking-[0.3em] uppercase italic">BUILD: 2025_05_18_V5</div>
                 </div>
             </aside>
 

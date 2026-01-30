@@ -1,9 +1,10 @@
+
 import React, { useEffect, useState, useRef } from 'react';
-import { useGame, BOT_QUOTES_LIST } from '../GameContext';
+import { useGame } from '../GameContext';
 import { Role } from '../types';
 
 const Lobby: React.FC = () => {
-  const { state, dispatch } = useGame();
+  const { state, dispatch, generateBotChat } = useGame();
   const [activeTab, setActiveTab] = useState<'AGENTS' | 'COMMS'>('AGENTS');
   const [chatMsg, setChatMsg] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -19,12 +20,11 @@ const Lobby: React.FC = () => {
     const interval = setInterval(() => {
         if (Math.random() > 0.4) {
             const bot = botPlayers[Math.floor(Math.random() * botPlayers.length)];
-            const quote = BOT_QUOTES_LIST[Math.floor(Math.random() * BOT_QUOTES_LIST.length)];
-            dispatch({ type: 'BOT_CHAT', payload: { sender: bot.name, text: quote } });
+            generateBotChat(bot.name);
         }
     }, 8000);
     return () => clearInterval(interval);
-  }, [players.length, dispatch]);
+  }, [players.length, generateBotChat]);
 
   useEffect(() => { if(activeTab === 'COMMS') chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs.length, activeTab]);
 

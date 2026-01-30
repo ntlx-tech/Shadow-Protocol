@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile } from './types';
 
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
@@ -30,7 +31,6 @@ interface AppState {
   };
 }
 
-// Persistence Helpers
 const STORAGE_KEY = 'shadow_protocol_data';
 
 const loadPersistentState = (): Partial<AppState> => {
@@ -295,7 +295,6 @@ const gameReducer = (state: AppState, action: Action): AppState => {
     default: return state;
   }
 
-  // Save to persistence on critical updates
   if (newState.profiles !== state.profiles || newState.user !== state.user) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       user: newState.user,
@@ -305,15 +304,47 @@ const gameReducer = (state: AppState, action: Action): AppState => {
   return newState;
 };
 
-interface GameContextProps { state: AppState; dispatch: React.Dispatch<Action>; }
+interface GameContextProps { 
+  state: AppState; 
+  dispatch: React.Dispatch<Action>; 
+  generateBotChat: (botName: string) => Promise<void>;
+}
+
 const GameContext = createContext<GameContextProps | undefined>(undefined);
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
-  return <GameContext.Provider value={{ state, dispatch }}>{children}</GameContext.Provider>;
+
+  const generateBotChat = async (botName: string) => {
+    if (!process.env.API_KEY) {
+      const quote = BOT_QUOTES[Math.floor(Math.random() * BOT_QUOTES.length)];
+      dispatch({ type: 'BOT_CHAT', payload: { sender: botName, text: quote } });
+      return;
+    }
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `You are a bot named ${botName} in a 1920s Noir Mafia game called Shadow Protocol. 
+        Write one short, immersive, moody sentence in the style of a hard-boiled detective or a mafia gangster. 
+        Do not use emojis. Maximum 15 words.`,
+      });
+      const text = response.text || BOT_QUOTES[0];
+      dispatch({ type: 'BOT_CHAT', payload: { sender: botName, text } });
+    } catch (e) {
+      const quote = BOT_QUOTES[Math.floor(Math.random() * BOT_QUOTES.length)];
+      dispatch({ type: 'BOT_CHAT', payload: { sender: botName, text: quote } });
+    }
+  };
+
+  return <GameContext.Provider value={{ state, dispatch, generateBotChat }}>{children}</GameContext.Provider>;
 };
+
 export const useGame = () => {
   const context = useContext(GameContext);
   if (!context) throw new Error("useGame error");
   return context;
 };
+
 export const BOT_QUOTES_LIST = BOT_QUOTES;
