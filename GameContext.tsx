@@ -1,28 +1,18 @@
 
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile } from './types';
 
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
-const BOT_QUOTES = [
-  "Anyone seen the heat? It's getting quiet out here.",
-  "I don't trust the look of things tonight.",
-  "If I find out who's behind this, they're sleeping with the fishes.",
-  "Stay sharp, people. The shadows are moving.",
-  "Is it just me, or is the air getting colder?",
-  "I've got a bad feeling about this city...",
-  "Don't look at me, I was at the docks all night.",
-  "The protocol is compromised, I can feel it.",
-  "I saw someone lurking near the warehouse last night...",
-  "Keep your friends close, and your suspects closer."
-];
-
-const ACTIVE_LOBBIES = ['OP88', 'JOIN', 'TEST'];
+const STORAGE_KEY = 'shadow_protocol_v5_data';
+const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
 
 interface AppState {
   user: UserProfile | null;
   profiles: UserProfile[];
   game: GameState;
+  syncId: string | null;
+  isHost: boolean;
   admin: {
     rolePeeker: boolean;
     godMode: boolean;
@@ -31,15 +21,11 @@ interface AppState {
   };
 }
 
-const STORAGE_KEY = 'shadow_protocol_data';
-
 const loadPersistentState = (): Partial<AppState> => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return JSON.parse(saved);
-  } catch (e) {
-    console.error("Failed to load state", e);
-  }
+  } catch (e) { console.error("Load failed", e); }
   return {};
 };
 
@@ -48,6 +34,8 @@ const savedState = loadPersistentState();
 const initialState: AppState = {
   user: savedState.user || null,
   profiles: savedState.profiles || [],
+  syncId: null,
+  isHost: false,
   game: {
     lobbyCode: null,
     phase: GamePhase.MENU,
@@ -57,284 +45,205 @@ const initialState: AppState = {
     config: { mafiaCount: 2, doctorCount: 1, copCount: 1 },
     nightActions: { mafiaTargetId: null, doctorTargetId: null, copTargetId: null },
   },
-  admin: {
-    rolePeeker: false,
-    godMode: false,
-    blackoutTargetId: null,
-    devRevealAll: false,
-  },
+  admin: { rolePeeker: false, godMode: false, blackoutTargetId: null, devRevealAll: false },
 };
 
 type Action =
   | { type: 'REGISTER_USER'; payload: UserProfile }
   | { type: 'LOGIN_USER'; payload: string }
   | { type: 'UPDATE_PROFILE'; payload: Partial<UserProfile> }
-  | { type: 'JOIN_LOBBY'; payload: { lobbyCode?: string } }
+  | { type: 'JOIN_LOBBY'; payload: { lobbyCode?: string; isHost: boolean; syncId?: string } }
+  | { type: 'SYNC_GAME_STATE'; payload: GameState }
   | { type: 'LEAVE_LOBBY' }
   | { type: 'RESET_GAME' }
-  | { type: 'UPDATE_CONFIG'; payload: Partial<GameState['config']> }
   | { type: 'ADD_BOT' }
-  | { type: 'KICK_PLAYER'; payload: string }
-  | { type: 'SET_FORCED_ROLE'; payload: { playerId: string; role: Role | undefined } }
   | { type: 'START_GAME' }
   | { type: 'FINISH_REVEAL' }
-  | { type: 'ADD_LOG'; payload: LogEntry }
   | { type: 'SEND_CHAT'; payload: string }
   | { type: 'BOT_CHAT'; payload: { sender: string; text: string } }
-  | { type: 'SET_NIGHT_ACTION'; payload: { role: Role; targetId: string } }
   | { type: 'NEXT_PHASE' }
+  | { type: 'CAST_VOTE'; payload: { voterId: string; targetId: string } }
+  | { type: 'SET_NIGHT_ACTION'; payload: { role: Role; targetId: string } }
+  | { type: 'DEV_COMMAND'; payload: { type: string; text?: string } }
+  | { type: 'ADMIN_BLACKOUT'; payload: string | null }
   | { type: 'ADMIN_TOGGLE_PEEKER' }
   | { type: 'ADMIN_TOGGLE_GOD_MODE' }
+  // Fix: Added missing actions used in AdminPanel
+  | { type: 'ADD_LOG'; payload: LogEntry }
   | { type: 'ADMIN_SMITE'; payload: string }
   | { type: 'ADMIN_REVIVE'; payload: string }
-  | { type: 'ADMIN_FORCE_VOTE'; payload: { voterId: string; targetId: string } }
-  | { type: 'ADMIN_BLACKOUT'; payload: string | null }
-  | { type: 'CAST_VOTE'; payload: { voterId: string; targetId: string } }
-  | { type: 'DEV_COMMAND'; payload: { type: 'WIN_MAFIA' | 'WIN_TOWN' | 'REVEAL_ALL' | 'BROADCAST' | 'SKIP_PHASE' | 'KILL_ALL'; text?: string } };
-
-const assignRoles = (currentPlayers: Player[], config: GameState['config']): Player[] => {
-    let pool: Role[] = [
-        ...Array(config.mafiaCount).fill(Role.MAFIA),
-        ...Array(config.doctorCount).fill(Role.DOCTOR),
-        ...Array(config.copCount).fill(Role.COP),
-    ];
-
-    let playersWithRoles = currentPlayers.map(p => {
-        if (p.forcedRole) {
-            const idx = pool.indexOf(p.forcedRole);
-            if (idx > -1) pool.splice(idx, 1);
-            return { ...p, role: p.forcedRole };
-        }
-        return { ...p, role: Role.VILLAGER }; 
-    });
-
-    const unassignedPlayers = playersWithRoles.filter(p => !p.forcedRole);
-    const neededCount = unassignedPlayers.length;
-    
-    if (pool.length < neededCount) {
-        pool = [...pool, ...Array(neededCount - pool.length).fill(Role.VILLAGER)];
-    }
-
-    for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-
-    return playersWithRoles.map(p => {
-        if (p.forcedRole) return p;
-        const assignedRole = pool.pop() || Role.VILLAGER;
-        return { ...p, role: assignedRole };
-    });
-};
+  | { type: 'UPDATE_CONFIG'; payload: Partial<GameState['config']> };
 
 const gameReducer = (state: AppState, action: Action): AppState => {
   let newState: AppState;
   switch (action.type) {
     case 'REGISTER_USER':
-        newState = { ...state, profiles: [...state.profiles, action.payload], user: action.payload, game: { ...state.game, phase: GamePhase.MENU } };
-        break;
-    case 'LOGIN_USER':
-        const foundUser = state.profiles.find(p => p.username.toLowerCase() === action.payload.toLowerCase());
-        newState = { ...state, user: foundUser || state.user, game: { ...state.game, phase: GamePhase.MENU } };
-        break;
-    case 'UPDATE_PROFILE':
-        if (!state.user) return state;
-        const updatedUser = { ...state.user, ...action.payload };
-        newState = { ...state, user: updatedUser, profiles: state.profiles.map(p => p.id === state.user?.id ? updatedUser : p) };
-        break;
-    case 'JOIN_LOBBY': {
-      if (!state.user) return state;
-      const codeInput = action.payload.lobbyCode?.toUpperCase();
-      if (codeInput && !ACTIVE_LOBBIES.includes(codeInput)) {
-          alert(`Lobby ${codeInput} not found.`);
-          return state;
-      }
-      const lobbyCode = codeInput || "OP88";
-      newState = { ...state, game: { ...state.game, lobbyCode, phase: GamePhase.LOBBY, players: [{ id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl, profile: state.user }], logs: [], dayCount: 1, nightActions: { mafiaTargetId: null, doctorTargetId: null, copTargetId: null } } };
+      newState = { ...state, profiles: [...state.profiles, action.payload], user: action.payload };
       break;
-    }
+    case 'LOGIN_USER':
+      const found = state.profiles.find(p => p.username.toLowerCase() === action.payload.toLowerCase());
+      newState = { ...state, user: found || state.user };
+      break;
+    case 'UPDATE_PROFILE':
+      if (!state.user) return state;
+      const updated = { ...state.user, ...action.payload };
+      newState = { ...state, user: updated, profiles: state.profiles.map(p => p.id === state.user?.id ? updated : p) };
+      break;
+    case 'JOIN_LOBBY':
+      const code = action.payload.lobbyCode || "OP88";
+      const me: Player = { id: state.user!.id, name: state.user!.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user!.avatarUrl };
+      newState = { 
+        ...state, 
+        isHost: action.payload.isHost,
+        syncId: action.payload.syncId || state.syncId,
+        game: { ...state.game, lobbyCode: code, phase: GamePhase.LOBBY, players: [me], logs: [] } 
+      };
+      break;
+    case 'SYNC_GAME_STATE':
+        newState = { ...state, game: action.payload };
+        break;
     case 'LEAVE_LOBBY':
     case 'RESET_GAME':
-        newState = { ...state, game: { ...state.game, phase: GamePhase.MENU, lobbyCode: null, players: [], logs: [], dayCount: 1 }, admin: { ...state.admin, devRevealAll: false } };
+      newState = { ...state, game: { ...state.game, phase: GamePhase.MENU, lobbyCode: null, players: [] }, syncId: null, isHost: false };
+      break;
+    case 'ADD_BOT':
+      const bName = BOT_NAMES.find(n => !state.game.players.some(p => p.name === n)) || "Agent X";
+      const bot: Player = { id: `bot-${Date.now()}`, name: bName, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: true, avatarUrl: `https://picsum.photos/seed/${bName}/100/100` };
+      newState = { ...state, game: { ...state.game, players: [...state.game.players, bot] } };
+      break;
+    case 'START_GAME':
+      // Basic role assignment logic
+      const players = [...state.game.players];
+      const shuffled = players.sort(() => Math.random() - 0.5);
+      const { mafiaCount, doctorCount, copCount } = state.game.config;
+      let idx = 0;
+      for (let i = 0; i < mafiaCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.MAFIA;
+      for (let i = 0; i < doctorCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.DOCTOR;
+      for (let i = 0; i < copCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.COP;
+      while (idx < shuffled.length) shuffled[idx++].role = Role.VILLAGER;
+      
+      newState = { ...state, game: { ...state.game, phase: GamePhase.REVEAL, players } };
+      break;
+    case 'SEND_CHAT':
+      const chat: LogEntry = { id: Date.now().toString(), text: action.payload, type: 'chat', sender: state.user?.username, timestamp: Date.now() };
+      newState = { ...state, game: { ...state.game, logs: [...state.game.logs, chat] } };
+      break;
+    case 'FINISH_REVEAL':
+        newState = { ...state, game: { ...state.game, phase: GamePhase.NIGHT } };
         break;
-    case 'ADD_BOT': {
-        const availableNames = BOT_NAMES.filter(n => !state.game.players.some(p => p.name === n));
-        if (availableNames.length === 0) return state; 
-        const name = availableNames[Math.floor(Math.random() * availableNames.length)];
-        newState = { ...state, game: { ...state.game, players: [...state.game.players, { id: `bot-${Date.now()}-${Math.random()}`, name, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: true, avatarUrl: `https://picsum.photos/seed/${name}/100/100` }] } };
+    case 'NEXT_PHASE':
+        const next = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
+        newState = { ...state, game: { ...state.game, phase: next, dayCount: next === GamePhase.NIGHT ? state.game.dayCount + 1 : state.game.dayCount } };
         break;
-    }
-    case 'KICK_PLAYER':
-        newState = { ...state, game: { ...state.game, players: state.game.players.filter(p => p.id !== action.payload) } };
-        break;
-    case 'SET_FORCED_ROLE':
-        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.playerId ? { ...p, forcedRole: action.payload.role } : p) } };
-        break;
+    // Fix: Implemented missing game actions
+    case 'CAST_VOTE':
+      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } };
+      break;
+    case 'SET_NIGHT_ACTION':
+      const { role, targetId } = action.payload;
+      const newActions = { ...state.game.nightActions };
+      if (role === Role.MAFIA) newActions.mafiaTargetId = targetId;
+      if (role === Role.DOCTOR) newActions.doctorTargetId = targetId;
+      if (role === Role.COP) newActions.copTargetId = targetId;
+      newState = { ...state, game: { ...state.game, nightActions: newActions } };
+      break;
+    case 'ADD_LOG':
+      newState = { ...state, game: { ...state.game, logs: [...state.game.logs, action.payload] } };
+      break;
+    case 'ADMIN_SMITE':
+      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.DEAD } : p) } };
+      break;
+    case 'ADMIN_REVIVE':
+      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.ALIVE } : p) } };
+      break;
     case 'UPDATE_CONFIG':
       newState = { ...state, game: { ...state.game, config: { ...state.game.config, ...action.payload } } };
       break;
-    case 'START_GAME':
-      newState = { ...state, game: { ...state.game, phase: GamePhase.REVEAL, players: assignRoles(state.game.players, state.game.config), logs: [{ id: Date.now().toString(), text: "Protocol initiated. Trust no one.", type: 'system', timestamp: Date.now() }] } };
-      break;
-    case 'FINISH_REVEAL':
-      newState = { ...state, game: { ...state.game, phase: GamePhase.NIGHT } };
-      break;
-    case 'SEND_CHAT':
-    case 'BOT_CHAT':
-        const chatLog: LogEntry = { id: `${Date.now()}-${Math.random()}`, text: action.payload instanceof Object ? action.payload.text : action.payload, type: 'chat', sender: action.payload instanceof Object ? action.payload.sender : (state.user?.username || 'SYSTEM'), timestamp: Date.now() };
-        newState = { ...state, game: { ...state.game, logs: [...state.game.logs, chatLog] } };
-        break;
-    case 'SET_NIGHT_ACTION':
-      const nActions = { ...state.game.nightActions };
-      if (action.payload.role === Role.MAFIA) nActions.mafiaTargetId = action.payload.targetId;
-      if (action.payload.role === Role.DOCTOR) nActions.doctorTargetId = action.payload.targetId;
-      if (action.payload.role === Role.COP) nActions.copTargetId = action.payload.targetId;
-      newState = { ...state, game: { ...state.game, nightActions: nActions } };
-      break;
-    case 'NEXT_PHASE': {
-      const currentPhase = state.game.phase;
-      let nextPhase = currentPhase;
-      let nextPlayers = [...state.game.players];
-      let newLogs = [...state.game.logs];
-      let newDayCount = state.game.dayCount;
-
-      if (currentPhase === GamePhase.NIGHT) {
-        const { mafiaTargetId, doctorTargetId } = state.game.nightActions;
-        let finalMafiaTarget = mafiaTargetId;
-        const aliveMafia = nextPlayers.filter(p => p.role === Role.MAFIA && p.status === PlayerStatus.ALIVE);
-        if (!finalMafiaTarget && aliveMafia.length > 0) {
-            const targets = nextPlayers.filter(p => p.status === PlayerStatus.ALIVE && p.role !== Role.MAFIA);
-            if (targets.length > 0) finalMafiaTarget = targets[Math.floor(Math.random() * targets.length)].id;
-        }
-        if (state.admin.godMode && finalMafiaTarget === state.user?.id) finalMafiaTarget = null;
-        if (finalMafiaTarget && finalMafiaTarget !== doctorTargetId) {
-          nextPlayers = nextPlayers.map(p => p.id === finalMafiaTarget ? { ...p, status: PlayerStatus.DEAD } : p);
-          newLogs.push({ id: `alert-${Date.now()}`, text: `${nextPlayers.find(p => p.id === finalMafiaTarget)?.name} was liquidated.`, type: 'alert', timestamp: Date.now() });
-        } else {
-          newLogs.push({ id: `sys-${Date.now()}`, text: "The night was quiet.", type: 'system', timestamp: Date.now() });
-        }
-        nextPhase = GamePhase.DAY;
-      } else if (currentPhase === GamePhase.DAY) {
-        nextPhase = GamePhase.VOTING;
-      } else if (currentPhase === GamePhase.VOTING) {
-        const alivePlayers = nextPlayers.filter(p => p.status === PlayerStatus.ALIVE);
-        const votes: Record<string, number> = {};
-        alivePlayers.forEach(p => {
-            let targetId = p.voteTargetId;
-            if (!targetId && p.isBot) {
-                const possible = alivePlayers.filter(ap => ap.id !== p.id && (p.role !== Role.MAFIA || ap.role !== Role.MAFIA));
-                if (possible.length > 0) targetId = possible[Math.floor(Math.random() * possible.length)].id;
-            }
-            if (targetId) votes[targetId] = (votes[targetId] || 0) + 1;
-        });
-        let maxVotes = 0, ejectedId: string | null = null, tied = false;
-        Object.entries(votes).forEach(([pid, count]) => { if (count > maxVotes) { maxVotes = count; ejectedId = pid; tied = false; } else if (count === maxVotes) tied = true; });
-        if (tied) ejectedId = null;
-        if (ejectedId) {
-            nextPlayers = nextPlayers.map(p => p.id === ejectedId ? { ...p, status: PlayerStatus.EJECTED } : p);
-            newLogs.push({ id: `alert-${Date.now()}`, text: `${nextPlayers.find(p => p.id === ejectedId)?.name} was silenced by the protocol.`, type: 'alert', timestamp: Date.now() });
-        }
-        nextPhase = GamePhase.NIGHT;
-        newDayCount++;
+    case 'DEV_COMMAND':
+      if (action.payload.type === 'SKIP_PHASE') {
+        const skipTo = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
+        newState = { ...state, game: { ...state.game, phase: skipTo } };
+      } else if (action.payload.type === 'KILL_ALL') {
+        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => ({ ...p, status: PlayerStatus.DEAD })) } };
+      } else if (action.payload.type === 'REVEAL_ALL') {
+        newState = { ...state, admin: { ...state.admin, devRevealAll: !state.admin.devRevealAll } };
+      } else if (action.payload.type === 'BROADCAST') {
+        const broadcast: LogEntry = { id: `bc-${Date.now()}`, text: action.payload.text || '', type: 'alert', timestamp: Date.now() };
+        newState = { ...state, game: { ...state.game, logs: [...state.game.logs, broadcast] } };
+      } else {
+        newState = state;
       }
-
-      const mafiaAlive = nextPlayers.filter(p => p.role === Role.MAFIA && p.status === PlayerStatus.ALIVE).length;
-      const othersAlive = nextPlayers.filter(p => p.role !== Role.MAFIA && p.status === PlayerStatus.ALIVE).length;
-      if (mafiaAlive === 0) nextPhase = GamePhase.GAME_OVER;
-      else if (mafiaAlive >= othersAlive) nextPhase = GamePhase.GAME_OVER;
-
-      newState = { ...state, game: { ...state.game, phase: nextPhase, players: nextPlayers, logs: newLogs, dayCount: newDayCount, nightActions: { mafiaTargetId: null, doctorTargetId: null, copTargetId: null } } };
       break;
-    }
-    case 'ADMIN_TOGGLE_PEEKER': 
-        newState = { ...state, admin: { ...state.admin, rolePeeker: !state.admin.rolePeeker } };
-        break;
-    case 'ADMIN_TOGGLE_GOD_MODE': 
-        newState = { ...state, admin: { ...state.admin, godMode: !state.admin.godMode } };
-        break;
-    case 'ADMIN_SMITE': 
-        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.DEAD } : p), logs: [...state.game.logs, { id: `smite-${Date.now()}`, text: `TERMINATED: ${state.game.players.find(p => p.id === action.payload)?.name}`, type: 'alert', timestamp: Date.now() }] } };
-        break;
-    case 'ADMIN_REVIVE': 
-        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.ALIVE } : p) } };
-        break;
-    case 'ADMIN_FORCE_VOTE': 
-        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } };
-        break;
-    case 'ADMIN_BLACKOUT': 
-        newState = { ...state, admin: { ...state.admin, blackoutTargetId: action.payload } };
-        break;
-    case 'CAST_VOTE': 
-        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } };
-        break;
-    case 'DEV_COMMAND': {
-        if (!state.user?.isDeveloper) return state;
-        let nPhase = state.game.phase;
-        let nPlayers = [...state.game.players];
-        let nLogs = [...state.game.logs];
-        if (action.payload.type === 'WIN_MAFIA') {
-            nPlayers = nPlayers.map(p => p.role !== Role.MAFIA ? { ...p, status: PlayerStatus.DEAD } : p);
-            nPhase = GamePhase.GAME_OVER;
-        } else if (action.payload.type === 'WIN_TOWN') {
-            nPlayers = nPlayers.map(p => p.role === Role.MAFIA ? { ...p, status: PlayerStatus.DEAD } : p);
-            nPhase = GamePhase.GAME_OVER;
-        } else if (action.payload.type === 'REVEAL_ALL') {
-            newState = { ...state, admin: { ...state.admin, devRevealAll: !state.admin.devRevealAll } };
-            break;
-        } else if (action.payload.type === 'SKIP_PHASE') {
-             nPhase = nPhase === GamePhase.NIGHT ? GamePhase.DAY : nPhase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
-        } else if (action.payload.type === 'KILL_ALL') {
-             nPlayers = nPlayers.map(p => p.id !== state.user?.id ? { ...p, status: PlayerStatus.DEAD } : p);
-             nLogs.push({ id: `dev-${Date.now()}`, text: `GRID WIPE INITIATED.`, type: 'alert', timestamp: Date.now() });
-        } else if (action.payload.type === 'BROADCAST') {
-            nLogs.push({ id: `dev-${Date.now()}`, text: `[ARCHITECT]: ${action.payload.text}`, type: 'system', timestamp: Date.now() });
-        }
-        newState = { ...state, game: { ...state.game, phase: nPhase, players: nPlayers, logs: nLogs } };
-        break;
-    }
+    case 'ADMIN_BLACKOUT': newState = { ...state, admin: { ...state.admin, blackoutTargetId: action.payload } }; break;
+    case 'ADMIN_TOGGLE_PEEKER': newState = { ...state, admin: { ...state.admin, rolePeeker: !state.admin.rolePeeker } }; break;
+    case 'ADMIN_TOGGLE_GOD_MODE': newState = { ...state, admin: { ...state.admin, godMode: !state.admin.godMode } }; break;
     default: return state;
   }
-
-  if (newState.profiles !== state.profiles || newState.user !== state.user) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      user: newState.user,
-      profiles: newState.profiles
-    }));
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ user: newState.user, profiles: newState.profiles }));
   return newState;
 };
 
 interface GameContextProps { 
   state: AppState; 
   dispatch: React.Dispatch<Action>; 
-  generateBotChat: (botName: string) => Promise<void>;
+  generateBotChat: (botName: string) => Promise<void>; 
 }
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const syncTimer = useRef<number | null>(null);
+
+  // NETWORK SYNC ENGINE
+  useEffect(() => {
+    if (!state.game.lobbyCode) return;
+
+    const performSync = async () => {
+        if (state.isHost) {
+            // Push state to the relay
+            if (!state.syncId) {
+                const res = await fetch(SYNC_RELAY_URL, { method: 'POST', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
+                const blobUrl = res.headers.get('Location');
+                if (blobUrl) {
+                    const id = blobUrl.split('/').pop()!;
+                    dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
+                }
+            } else {
+                await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { method: 'PUT', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
+            }
+        } else if (state.syncId) {
+            // Pull state from the relay
+            const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
+            if (res.ok) {
+                const remoteGame = await res.json();
+                // Logic to add ourselves to the remote list if missing
+                const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
+                if (!meInRemote && state.user) {
+                   const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl };
+                   remoteGame.players.push(me);
+                }
+                dispatch({ type: 'SYNC_GAME_STATE', payload: remoteGame });
+            }
+        }
+    };
+
+    syncTimer.current = window.setInterval(performSync, 3000);
+    return () => { if(syncTimer.current) clearInterval(syncTimer.current); };
+  }, [state.game.lobbyCode, state.isHost, state.syncId, state.game]);
 
   const generateBotChat = async (botName: string) => {
-    if (!process.env.API_KEY) {
-      const quote = BOT_QUOTES[Math.floor(Math.random() * BOT_QUOTES.length)];
-      dispatch({ type: 'BOT_CHAT', payload: { sender: botName, text: quote } });
-      return;
-    }
-
+    // Fix: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
+      const res = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `You are a bot named ${botName} in a 1920s Noir Mafia game called Shadow Protocol. 
-        Write one short, immersive, moody sentence in the style of a hard-boiled detective or a mafia gangster. 
-        Do not use emojis. Maximum 15 words.`,
+        contents: `Noir mafia bot ${botName}. Short sentence. No emojis.`,
       });
-      const text = response.text || BOT_QUOTES[0];
-      dispatch({ type: 'BOT_CHAT', payload: { sender: botName, text } });
+      // Fix: Direct property access for text
+      dispatch({ type: 'SEND_CHAT', payload: res.text || "..." });
     } catch (e) {
-      const quote = BOT_QUOTES[Math.floor(Math.random() * BOT_QUOTES.length)];
-      dispatch({ type: 'BOT_CHAT', payload: { sender: botName, text: quote } });
+      dispatch({ type: 'SEND_CHAT', payload: "The city never sleeps." });
     }
   };
 
@@ -343,8 +252,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useGame = () => {
   const context = useContext(GameContext);
-  if (!context) throw new Error("useGame error");
+  if (!context) throw new Error("useGame failed");
   return context;
 };
-
-export const BOT_QUOTES_LIST = BOT_QUOTES;
