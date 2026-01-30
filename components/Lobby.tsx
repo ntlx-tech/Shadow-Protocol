@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useGame } from '../GameContext';
-import { Role } from '../types';
+import { useGame } from '../GameContext.tsx';
+import { Role } from '../types.ts';
 
 const Lobby: React.FC = () => {
   const { state, dispatch, generateBotChat } = useGame();
@@ -36,7 +36,7 @@ const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black">
+    <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black w-full">
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-12 animate-fadeIn">
         
         {/* Session Details */}

@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { useGame } from '../GameContext';
-import { UserProfile } from '../types';
+import { useGame } from '../GameContext.tsx';
+import { UserProfile } from '../types.ts';
 
 const Login: React.FC = () => {
   const { state, dispatch } = useGame();
@@ -45,7 +46,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black relative z-10 overflow-hidden p-6">
+    <div className="flex items-center justify-center min-h-screen bg-black relative z-10 overflow-hidden p-6 w-full">
       <div className="vignette fixed inset-0 pointer-events-none" />
       <div className="w-full max-w-md p-10 bg-zinc-950/90 backdrop-blur-md border border-zinc-900 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative">
         <div className="text-center mb-8">
@@ -58,16 +59,16 @@ const Login: React.FC = () => {
         </div>
         {activeTab === 'register' ? (
             <div className="space-y-4 animate-fadeIn">
-                 <input value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="CODENAME" className="w-full bg-zinc-900 border border-zinc-800 py-3 px-4 text-zinc-100 font-mono text-sm" />
-                 <input type="password" value={regPass} onChange={(e) => setRegPass(e.target.value)} placeholder="PASS-KEY" className="w-full bg-zinc-900 border border-zinc-800 py-3 px-4 text-zinc-100 font-mono text-sm" />
-                 <input type="password" value={regAdminKey} onChange={(e) => setRegAdminKey(e.target.value)} placeholder="OVERSEER KEY (OPTIONAL)" className="w-full bg-zinc-900 border border-zinc-800 py-2 px-4 text-zinc-500 font-mono text-[10px]" />
-                 <input type="password" value={regDevKey} onChange={(e) => setRegDevKey(e.target.value)} placeholder="ARCHITECT KEY (OPTIONAL)" className="w-full bg-zinc-900 border border-zinc-800 py-2 px-4 text-zinc-500 font-mono text-[10px]" />
+                 <input value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="CODENAME" className="w-full bg-zinc-900 border border-zinc-800 py-3 px-4 text-zinc-100 font-mono text-sm outline-none focus:border-blood" />
+                 <input type="password" value={regPass} onChange={(e) => setRegPass(e.target.value)} placeholder="PASS-KEY" className="w-full bg-zinc-900 border border-zinc-800 py-3 px-4 text-zinc-100 font-mono text-sm outline-none focus:border-blood" />
+                 <input type="password" value={regAdminKey} onChange={(e) => setRegAdminKey(e.target.value)} placeholder="OVERSEER KEY (OPTIONAL)" className="w-full bg-zinc-900 border border-zinc-800 py-2 px-4 text-zinc-500 font-mono text-[10px] outline-none" />
+                 <input type="password" value={regDevKey} onChange={(e) => setRegDevKey(e.target.value)} placeholder="ARCHITECT KEY (OPTIONAL)" className="w-full bg-zinc-900 border border-zinc-800 py-2 px-4 text-zinc-500 font-mono text-[10px] outline-none" />
                  <button onClick={handleRegister} className="w-full py-4 bg-zinc-100 text-black font-cinzel font-bold border border-white hover:bg-blood hover:text-white transition-all duration-300 uppercase tracking-[0.2em] shadow-lg mt-6">INITIALIZE IDENTITY</button>
             </div>
         ) : (
             <div className="space-y-6 animate-fadeIn">
-                <input value={loginName} onChange={(e) => setLoginName(e.target.value)} placeholder="CODENAME" className="w-full bg-zinc-900 border border-zinc-800 py-4 px-4 text-center text-xl text-zinc-100 font-cinzel" />
-                <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="PASS-KEY" className="w-full bg-zinc-900 border border-zinc-800 py-3 px-4 text-center text-sm text-zinc-500 font-mono" />
+                <input value={loginName} onChange={(e) => setLoginName(e.target.value)} placeholder="CODENAME" className="w-full bg-zinc-900 border border-zinc-800 py-4 px-4 text-center text-xl text-zinc-100 font-cinzel outline-none focus:border-blood" />
+                <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="PASS-KEY" className="w-full bg-zinc-900 border border-zinc-800 py-3 px-4 text-center text-sm text-zinc-500 font-mono outline-none" />
                 <button onClick={handleLogin} className="w-full py-4 bg-zinc-900 text-zinc-400 font-cinzel font-bold border border-zinc-800 hover:bg-zinc-800 transition-all uppercase tracking-[0.2em]">AUTHENTICATE</button>
             </div>
         )}

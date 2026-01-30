@@ -47,6 +47,8 @@
       body {
         background-color: #050505;
         color: #e5e5e5;
+        margin: 0;
+        padding: 0;
       }
       /* Old Film Grain Effect */
       .noir-grain::after {
@@ -61,36 +63,34 @@
         z-index: 50;
         opacity: 0.4;
       }
-      /* Vignette */
       .vignette {
         background: radial-gradient(circle, rgba(0,0,0,0) 50%, rgba(0,0,0,0.8) 100%);
       }
-      .perspective-1000 {
-        perspective: 1000px;
-      }
-      .transform-style-3d {
-        transform-style: preserve-3d;
-      }
-      .backface-hidden {
-        backface-visibility: hidden;
-      }
-      .rotate-y-180 {
-        transform: rotateY(180deg);
-      }
+      .perspective-1000 { perspective: 1000px; }
+      .transform-style-3d { transform-style: preserve-3d; }
+      .backface-hidden { backface-visibility: hidden; }
+      .rotate-y-180 { transform: rotateY(180deg); }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom": "https://esm.sh/react-dom@^19.2.4",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>
-</head>
+  </head>
   <body class="noir-grain overflow-hidden">
-    <div id="root" class="h-screen w-screen relative z-10 bg-[#050505]"></div>
+    <div id="root" class="h-screen w-screen relative z-10 bg-[#050505] flex items-center justify-center">
+      <div id="boot-loader" class="text-zinc-800 font-mono text-[10px] tracking-[0.5em] animate-pulse">
+        CONNECTING_TO_GRID...
+      </div>
+    </div>
+    <!-- Explicitly loading the module entry point -->
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>

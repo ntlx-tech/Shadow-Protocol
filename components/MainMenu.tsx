@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useGame } from '../GameContext';
+import { useGame } from '../GameContext.tsx';
 
 type Tab = 'PLAY' | 'PROFILE' | 'SETTINGS' | 'REVISIONS' | 'CREDITS';
 
@@ -16,21 +16,14 @@ const MainMenu: React.FC = () => {
     const { state, dispatch } = useGame();
     const user = state.user!;
     const [activeTab, setActiveTab] = useState<Tab>('PLAY');
-    const [isEditing, setIsEditing] = useState(false);
-    const [editBio, setEditBio] = useState(user.bio);
     const [joinCode, setJoinCode] = useState('');
 
-    const handleUpdateProfile = () => { dispatch({ type: 'UPDATE_PROFILE', payload: { bio: editBio || user.bio } }); setIsEditing(false); };
-    
     const handleJoinGame = async (mode: 'create' | 'join') => { 
         if (mode === 'create') {
             dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true } });
         } else {
-            // Check for existence of a blob for this code
-            // For now, we manually assume the code "OP88" or similar is tied to a blob ID.
-            // In a real app, you'd fetch a mapping. We'll use a simplified handshake.
             alert("Frequency sync initiated. If the host is active, you will link automatically.");
-            dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId: 'b78a9c3d-1234' } }); // Simulated ID
+            dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId: 'b78a9c3d-1234' } });
         }
     };
 
@@ -43,7 +36,7 @@ const MainMenu: React.FC = () => {
     ];
 
     return (
-        <div className="min-h-screen h-screen bg-black flex relative overflow-hidden animate-fadeIn font-sans">
+        <div className="min-h-screen h-screen bg-black flex relative overflow-hidden animate-fadeIn font-sans w-full">
             <aside className="w-20 md:w-80 bg-[#080808] border-r border-zinc-900 flex flex-col z-30 shadow-2xl">
                 <div className="p-4 md:p-10 md:pb-16 flex justify-center md:block">
                     <h1 className="text-xl md:text-4xl font-noir font-black text-white tracking-tighter leading-tight md:leading-[0.85]">SHADOW<br/><span className="text-blood text-[10px] md:text-xl tracking-[0.4em] font-cinzel">PROTOCOL</span></h1>
@@ -80,15 +73,6 @@ const MainMenu: React.FC = () => {
                                         <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all">SYNC</button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === 'REVISIONS' && (
-                        <div className="space-y-10">
-                            <h2 className="text-6xl font-noir text-white font-black uppercase">PATCH LOGS</h2>
-                            <div className="border-l border-zinc-800 pl-8 py-4">
-                                <h3 className="text-blood font-black text-xl uppercase tracking-widest mb-2">REV_GLOBAL_V1 // 2025-05-20</h3>
-                                <p className="text-zinc-400 font-typewriter italic">"The city is now linked. Multiplayer frequency sync enabled. Gemini Neural Bots online."</p>
                             </div>
                         </div>
                     )}
