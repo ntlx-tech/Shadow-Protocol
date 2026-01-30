@@ -4,12 +4,37 @@ import { useGame } from '../GameContext.tsx';
 import { Role } from '../types.ts';
 import AdminPanel from './AdminPanel.tsx';
 
+// Bulletproof copy function for all environments
+const copyToClipboard = (text: string) => {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  } else {
+    // Fallback: execCommand('copy')
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return Promise.resolve();
+    } catch (err) {
+      document.body.removeChild(textArea);
+      return Promise.reject(err);
+    }
+  }
+};
+
 const Lobby: React.FC = () => {
   const { state, dispatch, generateBotChat } = useGame();
   const [activeTab, setActiveTab] = useState<'AGENTS' | 'COMMS'>('AGENTS');
   const [chatMsg, setChatMsg] = useState('');
   const [filterSender, setFilterSender] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState<'IDLE' | 'COPIED'>('IDLE');
+  const [copyStatus, setCopyStatus] = useState<'IDLE' | 'COPIED' | 'ERROR'>('IDLE');
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   if (!state.user) return null;
@@ -43,10 +68,15 @@ const Lobby: React.FC = () => {
   const handleCopyLink = () => {
       if (!state.syncId) return;
       const url = `${window.location.origin}${window.location.pathname}?sid=${state.syncId}`;
-      navigator.clipboard.writeText(url).then(() => {
+      copyToClipboard(url)
+        .then(() => {
           setCopyStatus('COPIED');
-          setTimeout(() => setCopyStatus('IDLE'), 2000);
-      });
+          setTimeout(() => setCopyStatus('IDLE'), 2500);
+        })
+        .catch(() => {
+          setCopyStatus('ERROR');
+          setTimeout(() => setCopyStatus('IDLE'), 3000);
+        });
   };
 
   const handleKick = (playerId: string) => {
@@ -85,18 +115,22 @@ const Lobby: React.FC = () => {
 
             <div className="flex-1 space-y-6">
               {/* Invite Section */}
-              <div className="bg-paper p-6 border-4 border-zinc-900 shadow-xl relative rotate-[-0.5deg]">
+              <div className="bg-paper p-6 border-4 border-zinc-900 shadow-xl relative rotate-[-0.5deg] group transition-all hover:rotate-0">
                   <div className="absolute top-0 right-0 bg-blood text-white px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest">Urgent</div>
                   <h3 className="font-noir font-black text-zinc-900 text-lg uppercase border-b border-zinc-400 mb-2">Classified Telegram</h3>
                   <p className="font-typewriter text-[10px] text-zinc-800 mb-4 leading-tight italic">
-                    "Send the following cipher link to verified agents for immediate grid entry. Bypassing directory scan recommended for deep operations."
+                    "Send the link below to verified agents for immediate entry. This bypasses the directory and connects directly to this frequency."
                   </p>
                   <button 
                     onClick={handleCopyLink}
                     disabled={!state.syncId}
-                    className={`w-full py-3 border-2 border-zinc-900 font-cinzel font-black text-[10px] tracking-[0.3em] uppercase transition-all ${copyStatus === 'COPIED' ? 'bg-blood text-white border-blood' : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-900 hover:text-white'}`}
+                    className={`w-full py-3 border-2 border-zinc-900 font-cinzel font-black text-[10px] tracking-[0.3em] uppercase transition-all ${
+                        copyStatus === 'COPIED' ? 'bg-green-600 text-white border-green-700' : 
+                        copyStatus === 'ERROR' ? 'bg-blood text-white border-blood' : 
+                        'bg-zinc-100 text-zinc-900 hover:bg-zinc-900 hover:text-white'
+                    }`}
                   >
-                      {copyStatus === 'COPIED' ? 'INTEL_COPIED' : 'COPY_INVITE_LINK'}
+                      {copyStatus === 'COPIED' ? 'INTEL_COPIED' : copyStatus === 'ERROR' ? 'COPY_FAILED_USE_CODE' : 'COPY_INVITE_LINK'}
                   </button>
               </div>
 
