@@ -71,6 +71,7 @@ type Action =
   | { type: 'ADD_LOG'; payload: LogEntry }
   | { type: 'ADMIN_SMITE'; payload: string }
   | { type: 'ADMIN_REVIVE'; payload: string }
+  | { type: 'ADMIN_FORCE_ROLE'; payload: { playerId: string; role: Role | null } }
   | { type: 'UPDATE_CONFIG'; payload: Partial<GameState['config']> };
 
 const gameReducer = (state: AppState, action: Action): AppState => {
@@ -90,7 +91,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       break;
     case 'JOIN_LOBBY':
       const code = action.payload.lobbyCode || "OP88";
-      const me: Player = { id: state.user!.id, name: state.user!.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user!.avatarUrl };
+      const me: Player = { id: state.user!.id, name: state.user!.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user!.avatarUrl, forcedRole: null };
       newState = { 
         ...state, 
         isHost: action.payload.isHost,
@@ -107,19 +108,34 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       break;
     case 'ADD_BOT':
       const bName = BOT_NAMES.find(n => !state.game.players.some(p => p.name === n)) || "Agent X";
-      const bot: Player = { id: `bot-${Date.now()}`, name: bName, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: true, avatarUrl: `https://picsum.photos/seed/${bName}/100/100` };
+      const bot: Player = { id: `bot-${Date.now()}`, name: bName, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: true, avatarUrl: `https://picsum.photos/seed/${bName}/100/100`, forcedRole: null };
       newState = { ...state, game: { ...state.game, players: [...state.game.players, bot] } };
       break;
     case 'START_GAME':
-      const players = [...state.game.players];
-      const shuffled = [...players].sort(() => Math.random() - 0.5);
+      const players = state.game.players.map(p => ({ ...p, status: PlayerStatus.ALIVE }));
       const { mafiaCount, doctorCount, copCount } = state.game.config;
-      let idx = 0;
-      for (let i = 0; i < mafiaCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.MAFIA;
-      for (let i = 0; i < doctorCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.DOCTOR;
-      for (let i = 0; i < copCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.COP;
-      while (idx < shuffled.length) shuffled[idx++].role = Role.VILLAGER;
-      newState = { ...state, game: { ...state.game, phase: GamePhase.REVEAL, players } };
+      
+      // Separate forced roles from unassigned ones
+      const unassignedIndices: number[] = [];
+      players.forEach((p, idx) => {
+        if (p.forcedRole) p.role = p.forcedRole;
+        else unassignedIndices.push(idx);
+      });
+
+      const shuffledUnassigned = [...unassignedIndices].sort(() => Math.random() - 0.5);
+      
+      let curMafia = players.filter(p => p.role === Role.MAFIA).length;
+      let curDoc = players.filter(p => p.role === Role.DOCTOR).length;
+      let curCop = players.filter(p => p.role === Role.COP).length;
+
+      shuffledUnassigned.forEach((pIdx) => {
+        if (curMafia < mafiaCount) { players[pIdx].role = Role.MAFIA; curMafia++; }
+        else if (curDoc < doctorCount) { players[pIdx].role = Role.DOCTOR; curDoc++; }
+        else if (curCop < copCount) { players[pIdx].role = Role.COP; curCop++; }
+        else { players[pIdx].role = Role.VILLAGER; }
+      });
+
+      newState = { ...state, game: { ...state.game, phase: GamePhase.REVEAL, players, dayCount: 1, logs: [] } };
       break;
     case 'SEND_CHAT':
       const chat: LogEntry = { id: Date.now().toString(), text: action.payload, type: 'chat', sender: state.user?.username, timestamp: Date.now() };
@@ -151,6 +167,9 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       break;
     case 'ADMIN_REVIVE':
       newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.ALIVE } : p) } };
+      break;
+    case 'ADMIN_FORCE_ROLE':
+      newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.playerId ? { ...p, forcedRole: action.payload.role } : p) } };
       break;
     case 'UPDATE_CONFIG':
       newState = { ...state, game: { ...state.game, config: { ...state.game.config, ...action.payload } } };
@@ -213,7 +232,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const remoteGame = await res.json();
                     const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
                     if (!meInRemote && state.user) {
-                       const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl };
+                       const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl, forcedRole: null };
                        remoteGame.players.push(me);
                     }
                     dispatch({ type: 'SYNC_GAME_STATE', payload: remoteGame });
@@ -236,7 +255,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const ai = new GoogleGenAI({ apiKey: key });
       const res = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Noir mafia bot ${botName}. Short sentence. No emojis.`,
+        contents: `You are ${botName}, a noir 1920s mafia character. Send a short, one-sentence cryptic chat message in character.`,
       });
       dispatch({ type: 'SEND_CHAT', payload: res.text || "The city never sleeps." });
     } catch (e) {

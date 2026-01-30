@@ -1,3 +1,4 @@
+
 export enum Role {
   VILLAGER = 'CITIZEN',
   MAFIA = 'MAFIA',
@@ -43,7 +44,7 @@ export interface Player {
   isBot: boolean;
   avatarUrl: string;
   voteTargetId?: string | null;
-  forcedRole?: Role;
+  forcedRole?: Role | null;
   profile?: UserProfile;
 }
 
