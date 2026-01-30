@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile } from './types';
+import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile } from './types.ts';
 
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v5_data';
@@ -68,7 +68,6 @@ type Action =
   | { type: 'ADMIN_BLACKOUT'; payload: string | null }
   | { type: 'ADMIN_TOGGLE_PEEKER' }
   | { type: 'ADMIN_TOGGLE_GOD_MODE' }
-  // Fix: Added missing actions used in AdminPanel
   | { type: 'ADD_LOG'; payload: LogEntry }
   | { type: 'ADMIN_SMITE'; payload: string }
   | { type: 'ADMIN_REVIVE'; payload: string }
@@ -95,7 +94,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       newState = { 
         ...state, 
         isHost: action.payload.isHost,
-        syncId: action.payload.syncId || state.syncId,
+        syncId: action.payload.syncId || null,
         game: { ...state.game, lobbyCode: code, phase: GamePhase.LOBBY, players: [me], logs: [] } 
       };
       break;
@@ -112,16 +111,14 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       newState = { ...state, game: { ...state.game, players: [...state.game.players, bot] } };
       break;
     case 'START_GAME':
-      // Basic role assignment logic
       const players = [...state.game.players];
-      const shuffled = players.sort(() => Math.random() - 0.5);
+      const shuffled = [...players].sort(() => Math.random() - 0.5);
       const { mafiaCount, doctorCount, copCount } = state.game.config;
       let idx = 0;
       for (let i = 0; i < mafiaCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.MAFIA;
       for (let i = 0; i < doctorCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.DOCTOR;
       for (let i = 0; i < copCount && idx < shuffled.length; i++) shuffled[idx++].role = Role.COP;
       while (idx < shuffled.length) shuffled[idx++].role = Role.VILLAGER;
-      
       newState = { ...state, game: { ...state.game, phase: GamePhase.REVEAL, players } };
       break;
     case 'SEND_CHAT':
@@ -135,7 +132,6 @@ const gameReducer = (state: AppState, action: Action): AppState => {
         const next = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
         newState = { ...state, game: { ...state.game, phase: next, dayCount: next === GamePhase.NIGHT ? state.game.dayCount + 1 : state.game.dayCount } };
         break;
-    // Fix: Implemented missing game actions
     case 'CAST_VOTE':
       newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload.voterId ? { ...p, voteTargetId: action.payload.targetId } : p) } };
       break;
@@ -195,36 +191,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const syncTimer = useRef<number | null>(null);
 
-  // NETWORK SYNC ENGINE
   useEffect(() => {
     if (!state.game.lobbyCode) return;
 
     const performSync = async () => {
-        if (state.isHost) {
-            // Push state to the relay
-            if (!state.syncId) {
-                const res = await fetch(SYNC_RELAY_URL, { method: 'POST', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
-                const blobUrl = res.headers.get('Location');
-                if (blobUrl) {
-                    const id = blobUrl.split('/').pop()!;
-                    dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
+        try {
+            if (state.isHost) {
+                if (!state.syncId) {
+                    const res = await fetch(SYNC_RELAY_URL, { method: 'POST', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
+                    const blobUrl = res.headers.get('Location');
+                    if (blobUrl) {
+                        const id = blobUrl.split('/').pop()!;
+                        dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
+                    }
+                } else {
+                    await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { method: 'PUT', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
                 }
-            } else {
-                await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { method: 'PUT', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
-            }
-        } else if (state.syncId) {
-            // Pull state from the relay
-            const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
-            if (res.ok) {
-                const remoteGame = await res.json();
-                // Logic to add ourselves to the remote list if missing
-                const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
-                if (!meInRemote && state.user) {
-                   const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl };
-                   remoteGame.players.push(me);
+            } else if (state.syncId) {
+                const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
+                if (res.ok) {
+                    const remoteGame = await res.json();
+                    const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
+                    if (!meInRemote && state.user) {
+                       const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl };
+                       remoteGame.players.push(me);
+                    }
+                    dispatch({ type: 'SYNC_GAME_STATE', payload: remoteGame });
                 }
-                dispatch({ type: 'SYNC_GAME_STATE', payload: remoteGame });
             }
+        } catch (e) {
+            console.error("Sync Error:", e);
         }
     };
 
@@ -233,17 +229,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.game.lobbyCode, state.isHost, state.syncId, state.game]);
 
   const generateBotChat = async (botName: string) => {
-    // Fix: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
+    if (!key) return;
+    
     try {
+      const ai = new GoogleGenAI({ apiKey: key });
       const res = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Noir mafia bot ${botName}. Short sentence. No emojis.`,
       });
-      // Fix: Direct property access for text
-      dispatch({ type: 'SEND_CHAT', payload: res.text || "..." });
+      dispatch({ type: 'SEND_CHAT', payload: res.text || "The city never sleeps." });
     } catch (e) {
-      dispatch({ type: 'SEND_CHAT', payload: "The city never sleeps." });
+      console.error("AI Error:", e);
     }
   };
 
