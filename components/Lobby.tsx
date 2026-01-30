@@ -49,43 +49,33 @@ const Lobby: React.FC = () => {
                     <h2 className="text-6xl font-noir text-white tracking-tighter font-black">LOBBY</h2>
                     <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full animate-pulse ${state.syncId ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500'}`} />
-                        <span className="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">Frequency: {state.syncId ? 'ENCRYPTED' : 'ESTABLISHING...'}</span>
+                        <span className="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">Grid: {state.syncId ? 'ENCRYPTED' : 'ESTABLISHING...'}</span>
                     </div>
                 </div>
                 <div className="text-right p-4 border border-zinc-900 bg-black">
-                    <div className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest mb-1">Code</div>
+                    <div className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest mb-1">Frequency</div>
                     <div className="text-3xl font-mono text-blood font-black tracking-widest">{lobbyCode || '----'}</div>
                 </div>
             </div>
 
-            <div className="flex-1 space-y-10">
-              <div className="flex items-center gap-6 p-6 bg-black/40 border border-zinc-900 rounded-sm">
-                  <img src={state.user.avatarUrl} className="w-16 h-16 grayscale opacity-80 border border-zinc-800" alt="U" />
-                  <div>
-                    <div className="text-zinc-600 font-cinzel text-[10px] tracking-widest uppercase">Verified Operator</div>
-                    <div className="text-zinc-100 font-black tracking-widest uppercase text-xl">{username}</div>
-                  </div>
+            <div className="flex-1 space-y-8">
+              <div className="p-4 bg-black/40 border border-zinc-900">
+                  <div className="text-[8px] font-mono text-zinc-700 uppercase tracking-[0.4em] mb-2">Classified Sync ID (Send to friends if Scan fails)</div>
+                  <div className="text-[10px] font-mono text-zinc-500 break-all select-all">{state.syncId || 'GENERATING_SERIAL...'}</div>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
                 {(isAdmin || isDeveloper) && (
                     <button onClick={() => dispatch({ type: 'ADD_BOT' })} className="w-full py-4 border border-zinc-800 text-zinc-600 hover:text-white transition-all text-[10px] font-mono tracking-widest uppercase">+ INJECT ARTIFICIAL AGENT</button>
                 )}
-                <button 
-                    onClick={() => dispatch({ type: 'LEAVE_LOBBY' })}
-                    className="w-full py-4 border border-zinc-800 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase"
-                >
-                    [ LEAVE TERMINAL ]
+                <button onClick={() => dispatch({ type: 'LEAVE_LOBBY' })} className="w-full py-4 border border-zinc-900 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase">
+                    [ ABORT FREQUENCY ]
                 </button>
               </div>
             </div>
 
-            <button 
-                onClick={() => dispatch({type: 'START_GAME'})} 
-                disabled={players.length < 3 && !isDeveloper}
-                className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-                {state.isHost ? (players.length < 3 && !isDeveloper ? "AWAITING ASSETS (MIN 3)" : "INITIATE PROTOCOL") : "WAITING FOR OVERSEER"}
+            <button onClick={() => dispatch({type: 'START_GAME'})} disabled={players.length < 3 && !isDeveloper} className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl disabled:opacity-30">
+                {state.isHost ? (players.length < 3 && !isDeveloper ? "AWAITING AGENTS (MIN 3)" : "INITIATE PROTOCOL") : "WAITING FOR OVERSEER"}
             </button>
         </div>
 
@@ -95,32 +85,25 @@ const Lobby: React.FC = () => {
                <button onClick={() => setActiveTab('AGENTS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'AGENTS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Agents ({players.length})</button>
                <button onClick={() => setActiveTab('COMMS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'COMMS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Frequency Feed</button>
            </div>
-
            <div className="flex-1 flex flex-col overflow-hidden">
                {activeTab === 'AGENTS' ? (
                   <div className="flex-1 overflow-y-auto p-8 space-y-4">
                     {players.map(p => (
                         <div key={p.id} className="flex items-center justify-between p-4 bg-black border border-zinc-900 shadow-inner group transition-all hover:border-zinc-700">
                             <div className="flex items-center gap-4">
-                                <div className="relative">
-                                    <img src={p.avatarUrl} className={`w-12 h-12 grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
-                                    {p.forcedRole && (
-                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blood rounded-full border border-black shadow-[0_0_5px_#8a0303]" title="Bias Applied" />
-                                    )}
-                                </div>
+                                <img src={p.avatarUrl} className={`w-12 h-12 grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
                                 <div className={`text-[12px] font-mono tracking-widest uppercase ${p.id === state.user?.id ? 'text-white' : 'text-zinc-600'}`}>{p.name}</div>
                             </div>
-                            <div className="text-[8px] font-mono text-zinc-800 uppercase tracking-widest">{p.isBot ? 'AUTO' : 'VERIFIED'}</div>
                         </div>
                     ))}
                   </div>
                ) : (
-                  <div className="flex-1 flex flex-col h-full bg-[url('https://www.transparenttextures.com/patterns/black-felt.png')]">
+                  <div className="flex-1 flex flex-col h-full">
                       <div className="flex-1 overflow-y-auto p-8 space-y-6">
                         {logs.filter(l => l.type === 'chat').map(log => (
                             <div key={log.id} className="max-w-[80%] animate-fadeIn">
                                 <div className="text-[9px] text-zinc-700 font-mono mb-1 uppercase tracking-tighter">{log.sender}</div>
-                                <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40 shadow-md">
+                                <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40">
                                     {log.text}
                                 </div>
                             </div>

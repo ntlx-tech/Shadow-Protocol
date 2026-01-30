@@ -21,15 +21,19 @@ const MainMenu: React.FC = () => {
     const user = state.user!;
     const [activeTab, setActiveTab] = useState<Tab>('PLAY');
     const [joinCode, setJoinCode] = useState('');
+    const [manualSyncId, setManualSyncId] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [showOverdrive, setShowOverdrive] = useState(false);
 
-    const handleJoinGame = async (mode: 'create' | 'join') => { 
+    const handleJoinGame = async (mode: 'create' | 'join' | 'direct') => { 
         if (mode === 'create') {
             dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true } });
+        } else if (mode === 'direct') {
+            if (!manualSyncId.trim()) return;
+            dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, lobbyCode: 'DIRECT', syncId: manualSyncId.trim() } });
         } else {
             setIsSyncing(true);
             try {
-                // Interrogate global switchboard
                 const res = await fetch(`https://jsonblob.com/api/jsonBlob/${DIRECTORY_BLOB_ID}`);
                 if (!res.ok) throw new Error("DIRECTORY_UNREACHABLE");
                 
@@ -42,10 +46,12 @@ const MainMenu: React.FC = () => {
                         payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId } 
                     });
                 } else {
-                    alert("FREQUENCY_NOT_FOUND: '" + joinCode.toUpperCase() + "' is not registered on the grid.");
+                    alert("FREQUENCY_NOT_FOUND: '" + joinCode.toUpperCase() + "' is not active. Check code or use Manual Overdrive.");
+                    setShowOverdrive(true);
                 }
             } catch (e) {
-                alert("GRID_INTERFERENCE: Failed to interrogate global switchboard. Verify connection.");
+                alert("GRID_INTERFERENCE: Global switchboard is unreachable. Use MANUAL OVERDRIVE with your host's Deep Sync ID.");
+                setShowOverdrive(true);
             } finally {
                 setIsSyncing(false);
             }
@@ -76,14 +82,11 @@ const MainMenu: React.FC = () => {
                     ))}
                 </nav>
                 <div className="p-4 border-t border-zinc-900/40">
-                    <button 
-                        onClick={() => dispatch({ type: 'LOGOUT_USER' })}
-                        className="w-full flex items-center justify-center md:justify-start gap-4 px-3 md:px-6 py-4 rounded-sm transition-all text-zinc-700 hover:text-blood group"
-                    >
+                    <button onClick={() => dispatch({ type: 'LOGOUT_USER' })} className="w-full flex items-center justify-center md:justify-start gap-4 px-3 md:px-6 py-4 rounded-sm transition-all text-zinc-700 hover:text-blood group">
                         <span><Icons.Logout /></span>
                         <span className="hidden md:inline font-cinzel text-[10px] tracking-widest uppercase group-hover:font-black">TERMINATE IDENTITY</span>
                     </button>
-                    <div className="mt-4 text-[8px] font-mono text-zinc-800 text-center tracking-widest uppercase">SYNC_VER: GLOBAL_V2.3_LATEST</div>
+                    <div className="mt-4 text-[8px] font-mono text-zinc-800 text-center tracking-widest uppercase">STABILITY: GRID_V5_RESILIENT</div>
                 </div>
             </aside>
 
@@ -98,15 +101,28 @@ const MainMenu: React.FC = () => {
                                     <p className="text-zinc-600 font-typewriter italic leading-relaxed">Secure a new line. Broadcast to other verified agents.</p>
                                     <div className="mt-12 font-black tracking-widest text-zinc-400 group-hover:text-blood transition-colors uppercase">HOST SESSION →</div>
                                 </div>
-                                <div className="bg-zinc-950/40 border border-zinc-900 p-14 shadow-2xl">
-                                    <h3 className="text-3xl font-cinzel text-zinc-300 mb-6 uppercase tracking-widest">INTERCEPT LINK</h3>
-                                    <p className="text-zinc-600 font-typewriter italic mb-8">Enter the 4-digit frequency code.</p>
-                                    <div className="flex gap-4">
-                                        <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="XXXX" className="w-24 md:w-36 bg-black border border-zinc-800 p-4 text-center font-mono text-white text-xl uppercase outline-none focus:border-blood" maxLength={4} />
-                                        <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4 || isSyncing} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest disabled:opacity-50">
-                                            {isSyncing ? "SCANNING..." : "SYNC"}
-                                        </button>
+                                
+                                <div className="space-y-6">
+                                    <div className="bg-zinc-950/40 border border-zinc-900 p-10 shadow-2xl">
+                                        <h3 className="text-2xl font-cinzel text-zinc-300 mb-6 uppercase tracking-widest">INTERCEPT LINK</h3>
+                                        <div className="flex gap-4">
+                                            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="XXXX" className="w-24 md:w-36 bg-black border border-zinc-800 p-4 text-center font-mono text-white text-xl uppercase outline-none focus:border-blood" maxLength={4} />
+                                            <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4 || isSyncing} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest disabled:opacity-50">
+                                                {isSyncing ? "SCANNING..." : "SYNC"}
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {showOverdrive && (
+                                        <div className="bg-blood/5 border border-blood/20 p-10 animate-fadeIn">
+                                            <h3 className="text-sm font-noir text-blood mb-4 font-black tracking-widest uppercase">MANUAL OVERDRIVE</h3>
+                                            <p className="text-[10px] text-zinc-600 mb-4 font-mono uppercase">Directory failure. Paste Classified Sync ID below:</p>
+                                            <div className="flex flex-col gap-4">
+                                                <input value={manualSyncId} onChange={(e) => setManualSyncId(e.target.value)} placeholder="SYNC_ID_SERIAL_NUMBER..." className="w-full bg-black border border-zinc-900 p-4 font-mono text-zinc-400 text-[10px] uppercase outline-none focus:border-blood" />
+                                                <button onClick={() => handleJoinGame('direct')} className="w-full py-3 bg-blood text-white font-cinzel font-black hover:bg-zinc-100 hover:text-black transition-all uppercase tracking-widest text-[10px]">FORCE CONNECTION</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -126,133 +142,10 @@ const MainMenu: React.FC = () => {
                                             <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-1">Subject Name</div>
                                             <div className="text-4xl font-noir font-black text-zinc-900 uppercase border-b border-zinc-300">{user.username}</div>
                                         </div>
-                                        <div>
-                                            <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-1">Status</div>
-                                            <div className="flex gap-2">
-                                                {user.badges.map(b => (
-                                                    <span key={b} className="bg-zinc-900 text-white text-[9px] px-2 py-1 font-black tracking-widest uppercase">{b}</span>
-                                                ))}
-                                                {user.isAdmin && <span className="bg-blood text-white text-[9px] px-2 py-1 font-black tracking-widest uppercase">OVERSEER</span>}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-1">Service Record</div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="bg-zinc-100 p-4 border border-zinc-200">
-                                                    <div className="text-[10px] font-mono text-zinc-500 uppercase">Successful Ops</div>
-                                                    <div className="text-2xl font-noir text-zinc-900 font-bold">{user.wins}</div>
-                                                </div>
-                                                <div className="bg-zinc-100 p-4 border border-zinc-200">
-                                                    <div className="text-[10px] font-mono text-zinc-500 uppercase">Total Missions</div>
-                                                    <div className="text-2xl font-noir text-zinc-900 font-bold">{user.matches}</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="font-typewriter text-zinc-700 italic text-sm border-l-2 border-zinc-300 pl-4 py-2">
-                                            "{user.bio}"
-                                        </div>
+                                        <div className="font-typewriter text-zinc-700 italic text-sm border-l-2 border-zinc-300 pl-4 py-2">"{user.bio}"</div>
                                     </div>
                                 </div>
                              </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'SETTINGS' && (
-                        <div className="space-y-12 animate-fadeIn max-w-4xl">
-                            <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">PROTOCOLS</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="bg-zinc-900/40 p-10 border border-zinc-800 shadow-xl space-y-8">
-                                    <h3 className="font-cinzel text-xl text-zinc-100 uppercase tracking-[0.2em] border-b border-zinc-800 pb-4">Game Parameters</h3>
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-mono text-zinc-500 uppercase">Mafia Presence</span>
-                                            <span className="text-xl font-noir text-white">{state.game.config.mafiaCount}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-mono text-zinc-500 uppercase">Medic Support</span>
-                                            <span className="text-xl font-noir text-white">{state.game.config.doctorCount}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-mono text-zinc-500 uppercase">Intel Detective</span>
-                                            <span className="text-xl font-noir text-white">{state.game.config.copCount}</span>
-                                        </div>
-                                    </div>
-                                    <div className="text-[10px] font-mono text-zinc-700 mt-4 leading-relaxed uppercase border-t border-zinc-800 pt-4">
-                                        * Parameters can only be modified by the Overseer during initialization.
-                                    </div>
-                                </div>
-
-                                <div className="bg-zinc-900/40 p-10 border border-zinc-800 shadow-xl space-y-8">
-                                    <h3 className="font-cinzel text-xl text-zinc-100 uppercase tracking-[0.2em] border-b border-zinc-800 pb-4">Communication</h3>
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-mono text-zinc-500 uppercase">Encrypted Chat</span>
-                                            <span className="text-[10px] font-mono text-green-500 uppercase">ENABLED</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-mono text-zinc-500 uppercase">AI Agents</span>
-                                            <span className="text-[10px] font-mono text-green-500 uppercase">STABLE</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-mono text-zinc-500 uppercase">Frequency Relay</span>
-                                            <span className="text-[10px] font-mono text-zinc-600 uppercase">v2.3-HUB</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'REVISIONS' && (
-                        <div className="space-y-12 animate-fadeIn max-w-4xl">
-                            <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">REVISIONS</h2>
-                            <div className="space-y-10">
-                                <div className="bg-zinc-900/40 p-10 border border-zinc-800 border-l-4 border-l-blood relative">
-                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">APR 2026</div>
-                                    <h3 className="font-noir text-2xl text-white font-bold mb-4 uppercase">Case File #08: Global Grid Stability</h3>
-                                    <div className="font-typewriter text-zinc-500 space-y-4 text-sm">
-                                        <p>+ Resolved cross-device joining 'race condition' between host and guests.</p>
-                                        <p>+ Standardized 'TERMINATE IDENTITY' and 'ABORT FREQUENCY' exit paths.</p>
-                                        <p>+ Visual refinements to grid status indicators.</p>
-                                        <p>+ Added 'SYNCING...' state feedback to all frequency interceptions.</p>
-                                    </div>
-                                </div>
-                                <div className="bg-zinc-900/40 p-10 border border-zinc-800 opacity-50 relative">
-                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">MAR 2026</div>
-                                    <h3 className="font-noir text-2xl text-zinc-400 font-bold mb-4 uppercase">Case File #07: The Abort Protocols</h3>
-                                    <div className="font-typewriter text-zinc-600 space-y-4 text-sm">
-                                        <p>+ Implemented initial detachment pathways.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'CREDITS' && (
-                        <div className="space-y-12 animate-fadeIn max-w-2xl">
-                            <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">INTEL</h2>
-                            <div className="bg-paper p-12 text-zinc-900 border-4 border-zinc-900 rotate-[-1deg] shadow-2xl">
-                                <div className="text-center space-y-8">
-                                    <h3 className="font-cinzel text-xl font-bold tracking-[0.5em] border-b border-zinc-300 pb-4 uppercase">Confidential Project</h3>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <div className="text-[10px] font-mono text-zinc-500 uppercase">Lead Architect</div>
-                                            <div className="text-2xl font-noir font-black uppercase">Gemini & Human Operator</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[10px] font-mono text-zinc-500 uppercase">Visual Identity</div>
-                                            <div className="text-2xl font-noir font-black uppercase">Noir Renaissance Studio</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[10px] font-mono text-zinc-500 uppercase">Neural Engine</div>
-                                            <div className="text-2xl font-noir font-black uppercase">Google Generative AI</div>
-                                        </div>
-                                    </div>
-                                    <div className="pt-8 border-t border-zinc-300 font-typewriter text-xs text-zinc-600 leading-relaxed italic">
-                                        "This simulation is provided for authorized agents only. Any unauthorized access to the protocol will result in immediate termination of assets."
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     )}
                 </div>
