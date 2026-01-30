@@ -6,6 +6,8 @@ import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v5_data';
 const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
+// A static public blob used as a directory to map 4-char codes to syncIds
+const DIRECTORY_BLOB_ID = '1334657159740514304'; 
 
 interface AppState {
   user: UserProfile | null;
@@ -20,6 +22,13 @@ interface AppState {
     devRevealAll: boolean;
   };
 }
+
+const generateLobbyCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing O/0 I/1
+    let result = '';
+    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+    return result;
+};
 
 const loadPersistentState = (): Partial<AppState> => {
   try {
@@ -90,7 +99,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       newState = { ...state, user: updated, profiles: state.profiles.map(p => p.id === state.user?.id ? updated : p) };
       break;
     case 'JOIN_LOBBY':
-      const code = action.payload.lobbyCode || "OP88";
+      const code = action.payload.lobbyCode || (action.payload.isHost ? generateLobbyCode() : "JOINING...");
       const me: Player = { id: state.user!.id, name: state.user!.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user!.avatarUrl, forcedRole: null };
       newState = { 
         ...state, 
@@ -115,7 +124,6 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       const players = state.game.players.map(p => ({ ...p, status: PlayerStatus.ALIVE }));
       const { mafiaCount, doctorCount, copCount } = state.game.config;
       
-      // Separate forced roles from unassigned ones
       const unassignedIndices: number[] = [];
       players.forEach((p, idx) => {
         if (p.forcedRole) p.role = p.forcedRole;
@@ -159,9 +167,6 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       if (role === Role.COP) newActions.copTargetId = targetId;
       newState = { ...state, game: { ...state.game, nightActions: newActions } };
       break;
-    case 'ADD_LOG':
-      newState = { ...state, game: { ...state.game, logs: [...state.game.logs, action.payload] } };
-      break;
     case 'ADMIN_SMITE':
       newState = { ...state, game: { ...state.game, players: state.game.players.map(p => p.id === action.payload ? { ...p, status: PlayerStatus.DEAD } : p) } };
       break;
@@ -176,8 +181,8 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       break;
     case 'DEV_COMMAND':
       if (action.payload.type === 'SKIP_PHASE') {
-        const skipTo = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
-        newState = { ...state, game: { ...state.game, phase: skipTo } };
+        const nextP = state.game.phase === GamePhase.NIGHT ? GamePhase.DAY : state.game.phase === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
+        newState = { ...state, game: { ...state.game, phase: nextP } };
       } else if (action.payload.type === 'KILL_ALL') {
         newState = { ...state, game: { ...state.game, players: state.game.players.map(p => ({ ...p, status: PlayerStatus.DEAD })) } };
       } else if (action.payload.type === 'REVEAL_ALL') {
@@ -217,14 +222,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             if (state.isHost) {
                 if (!state.syncId) {
-                    const res = await fetch(SYNC_RELAY_URL, { method: 'POST', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
+                    // 1. Create the main game blob
+                    const res = await fetch(SYNC_RELAY_URL, { 
+                      method: 'POST', 
+                      body: JSON.stringify(state.game), 
+                      headers: { 'Content-Type': 'application/json' } 
+                    });
                     const blobUrl = res.headers.get('Location');
                     if (blobUrl) {
                         const id = blobUrl.split('/').pop()!;
                         dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
+                        
+                        // 2. Register this code in the global directory
+                        const dirRes = await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`);
+                        const directory = await dirRes.json();
+                        directory[state.game.lobbyCode!] = id;
+                        await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`, { 
+                          method: 'PUT', 
+                          body: JSON.stringify(directory), 
+                          headers: { 'Content-Type': 'application/json' } 
+                        });
                     }
                 } else {
-                    await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { method: 'PUT', body: JSON.stringify(state.game), headers: { 'Content-Type': 'application/json' } });
+                    await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { 
+                      method: 'PUT', 
+                      body: JSON.stringify(state.game), 
+                      headers: { 'Content-Type': 'application/json' } 
+                    });
                 }
             } else if (state.syncId) {
                 const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);

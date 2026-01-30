@@ -49,6 +49,11 @@
         color: #e5e5e5;
         margin: 0;
         padding: 0;
+        /* Disable selection for a cleaner app feel */
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
       }
       /* Old Film Grain Effect */
       .noir-grain::after {
@@ -70,6 +75,10 @@
       .transform-style-3d { transform-style: preserve-3d; }
       .backface-hidden { backface-visibility: hidden; }
       .rotate-y-180 { transform: rotateY(180deg); }
+      
+      /* Smooth transitions for admin panel and other overlays */
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
     <script type="importmap">
 {
@@ -87,7 +96,7 @@
   <body class="noir-grain overflow-hidden">
     <div id="root" class="h-screen w-screen relative z-10 bg-[#050505] flex items-center justify-center">
       <div id="boot-loader" class="text-zinc-800 font-mono text-[10px] tracking-[0.5em] animate-pulse">
-        CONNECTING_TO_GRID...
+        ESTABLISHING_ENCRYPTED_LINK...
       </div>
     </div>
     <!-- Explicitly loading the module entry point -->

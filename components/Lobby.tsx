@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../GameContext.tsx';
 import { Role } from '../types.ts';
+import AdminPanel from './AdminPanel.tsx';
 
 const Lobby: React.FC = () => {
   const { state, dispatch, generateBotChat } = useGame();
@@ -36,8 +37,10 @@ const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black w-full">
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-12 animate-fadeIn">
+    <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black w-full overflow-hidden">
+      <AdminPanel />
+      
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-12 animate-fadeIn relative z-10">
         
         {/* Session Details */}
         <div className="bg-zinc-950/95 border border-zinc-900 p-10 flex flex-col shadow-2xl relative">
@@ -46,12 +49,12 @@ const Lobby: React.FC = () => {
                     <h2 className="text-6xl font-noir text-white tracking-tighter font-black">LOBBY</h2>
                     <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full animate-pulse ${state.syncId ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500'}`} />
-                        <span className="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">Frequency: {state.syncId ? 'ENCRYPTED' : 'LOCAL'}</span>
+                        <span className="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">Frequency: {state.syncId ? 'ENCRYPTED' : 'ESTABLISHING...'}</span>
                     </div>
                 </div>
                 <div className="text-right p-4 border border-zinc-900 bg-black">
                     <div className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest mb-1">Code</div>
-                    <div className="text-3xl font-mono text-blood font-black tracking-widest">{lobbyCode}</div>
+                    <div className="text-3xl font-mono text-blood font-black tracking-widest">{lobbyCode || '----'}</div>
                 </div>
             </div>
 
@@ -69,7 +72,7 @@ const Lobby: React.FC = () => {
               )}
             </div>
 
-            <button onClick={() => dispatch({type: 'START_GAME'})} className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl">
+            <button onClick={() => dispatch({type: 'START_GAME'})} className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl disabled:opacity-50">
                 {state.isHost ? "INITIATE PROTOCOL" : "WAITING FOR OVERSEER"}
             </button>
         </div>
@@ -77,8 +80,8 @@ const Lobby: React.FC = () => {
         {/* Agents & Comms */}
         <div className="flex flex-col h-[650px] border border-zinc-900 bg-[#080808] shadow-2xl overflow-hidden">
            <div className="flex border-b border-zinc-900 bg-black">
-               <button onClick={() => setActiveTab('AGENTS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase ${activeTab === 'AGENTS' ? 'text-white' : 'text-zinc-700'}`}>Agents ({players.length})</button>
-               <button onClick={() => setActiveTab('COMMS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase ${activeTab === 'COMMS' ? 'text-white' : 'text-zinc-700'}`}>Frequency Feed</button>
+               <button onClick={() => setActiveTab('AGENTS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'AGENTS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Agents ({players.length})</button>
+               <button onClick={() => setActiveTab('COMMS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'COMMS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Frequency Feed</button>
            </div>
 
            <div className="flex-1 flex flex-col overflow-hidden">
@@ -87,7 +90,12 @@ const Lobby: React.FC = () => {
                     {players.map(p => (
                         <div key={p.id} className="flex items-center justify-between p-4 bg-black border border-zinc-900 shadow-inner group transition-all hover:border-zinc-700">
                             <div className="flex items-center gap-4">
-                                <img src={p.avatarUrl} className={`w-12 h-12 grayscale filter brightness-75 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
+                                <div className="relative">
+                                    <img src={p.avatarUrl} className={`w-12 h-12 grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
+                                    {p.forcedRole && (
+                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-blood rounded-full border border-black shadow-[0_0_5px_#8a0303]" title="Bias Applied" />
+                                    )}
+                                </div>
                                 <div className={`text-[12px] font-mono tracking-widest uppercase ${p.id === state.user?.id ? 'text-white' : 'text-zinc-600'}`}>{p.name}</div>
                             </div>
                             <div className="text-[8px] font-mono text-zinc-800 uppercase tracking-widest">{p.isBot ? 'AUTO' : 'VERIFIED'}</div>
@@ -98,9 +106,9 @@ const Lobby: React.FC = () => {
                   <div className="flex-1 flex flex-col h-full bg-[url('https://www.transparenttextures.com/patterns/black-felt.png')]">
                       <div className="flex-1 overflow-y-auto p-8 space-y-6">
                         {logs.filter(l => l.type === 'chat').map(log => (
-                            <div key={log.id} className="max-w-[80%]">
-                                <div className="text-[9px] text-zinc-700 font-mono mb-1 uppercase">{log.sender}</div>
-                                <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40">
+                            <div key={log.id} className="max-w-[80%] animate-fadeIn">
+                                <div className="text-[9px] text-zinc-700 font-mono mb-1 uppercase tracking-tighter">{log.sender}</div>
+                                <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40 shadow-md">
                                     {log.text}
                                 </div>
                             </div>
@@ -108,7 +116,7 @@ const Lobby: React.FC = () => {
                         <div ref={chatEndRef} />
                       </div>
                       <form onSubmit={handleSendChat} className="p-4 bg-black border-t border-zinc-900">
-                          <input value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} placeholder="ENCRYPT MESSAGE..." className="w-full bg-zinc-900/50 border border-zinc-800 p-4 text-xs text-white outline-none focus:border-blood font-mono" />
+                          <input value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} placeholder="ENCRYPT MESSAGE..." className="w-full bg-zinc-900/50 border border-zinc-800 p-4 text-xs text-white outline-none focus:border-blood font-mono uppercase" />
                       </form>
                   </div>
                )}

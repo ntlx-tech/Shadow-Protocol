@@ -13,18 +13,39 @@ const Icons = {
     Intel: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 19V9C22 7.89543 21.1046 7 20 7H11.8284C11.298 7 10.7893 6.78929 10.4142 6.41421L8.58579 4.58579C8.21071 4.21071 7.70199 4 7.17157 4H4C2.89543 4 2 4.89543 2 6V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19Z" /><path d="M12 11V17M9 14H15" strokeLinecap="round" /></svg>
 };
 
+const DIRECTORY_BLOB_ID = '1334657159740514304'; 
+
 const MainMenu: React.FC = () => {
     const { state, dispatch } = useGame();
     const user = state.user!;
     const [activeTab, setActiveTab] = useState<Tab>('PLAY');
     const [joinCode, setJoinCode] = useState('');
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const handleJoinGame = async (mode: 'create' | 'join') => { 
         if (mode === 'create') {
             dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true } });
         } else {
-            alert("Frequency sync initiated. Linking to code: " + joinCode);
-            dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId: 'b78a9c3d-1234' } });
+            setIsSyncing(true);
+            try {
+                // Look up the directory for the syncId
+                const res = await fetch(`https://jsonblob.com/api/jsonBlob/${DIRECTORY_BLOB_ID}`);
+                const directory = await res.json();
+                const syncId = directory[joinCode.toUpperCase()];
+                
+                if (syncId) {
+                    dispatch({ 
+                        type: 'JOIN_LOBBY', 
+                        payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId } 
+                    });
+                } else {
+                    alert("FREQUENCY_NOT_FOUND: The code provided does not match any active terminal.");
+                }
+            } catch (e) {
+                alert("GRID_ERROR: Interference detected. Try again.");
+            } finally {
+                setIsSyncing(false);
+            }
         }
     };
 
@@ -52,7 +73,7 @@ const MainMenu: React.FC = () => {
                     ))}
                 </nav>
                 <div className="p-8 border-t border-zinc-900/40 text-center">
-                    <div className="text-[8px] font-mono text-zinc-700 tracking-widest uppercase">SYNC_VER: GLOBAL_V2</div>
+                    <div className="text-[8px] font-mono text-zinc-700 tracking-widest uppercase">SYNC_VER: GLOBAL_V2.1</div>
                 </div>
             </aside>
 
@@ -72,7 +93,9 @@ const MainMenu: React.FC = () => {
                                     <p className="text-zinc-600 font-typewriter italic mb-8">Enter the 4-digit frequency code.</p>
                                     <div className="flex gap-4">
                                         <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="XXXX" className="w-24 md:w-36 bg-black border border-zinc-800 p-4 text-center font-mono text-white text-xl uppercase outline-none focus:border-blood" maxLength={4} />
-                                        <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest">SYNC</button>
+                                        <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4 || isSyncing} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest disabled:opacity-50">
+                                            {isSyncing ? "SYNCING..." : "SYNC"}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -162,7 +185,7 @@ const MainMenu: React.FC = () => {
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs font-mono text-zinc-500 uppercase">Frequency Relay</span>
-                                            <span className="text-[10px] font-mono text-zinc-600 uppercase">v2.01-BLOB</span>
+                                            <span className="text-[10px] font-mono text-zinc-600 uppercase">v2.1-DIR</span>
                                         </div>
                                     </div>
                                 </div>
@@ -175,21 +198,21 @@ const MainMenu: React.FC = () => {
                             <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">REVISIONS</h2>
                             <div className="space-y-10">
                                 <div className="bg-zinc-900/40 p-10 border border-zinc-800 border-l-4 border-l-blood relative">
-                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">JAN 2026</div>
-                                    <h3 className="font-noir text-2xl text-white font-bold mb-4 uppercase">Case File #05: The Overseer Patch</h3>
+                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">FEB 2026</div>
+                                    <h3 className="font-noir text-2xl text-white font-bold mb-4 uppercase">Case File #06: The Synchronization Hub</h3>
                                     <div className="font-typewriter text-zinc-500 space-y-4 text-sm">
-                                        <p>+ Simplified Overseer console to dual-channel operation.</p>
-                                        <p>+ Implemented direct identity forcing (Role Bias).</p>
-                                        <p>+ Resolved frequency interference (Black Screen failure).</p>
-                                        <p>+ Enhanced bot neural paths for cryptic messaging.</p>
+                                        <p>+ Unified 4-digit code directory for multi-device play.</p>
+                                        <p>+ Locked down UI to prevent accidental text selection.</p>
+                                        <p>+ Fixed Overseer bias bug in Lobby phase.</p>
+                                        <p>+ Enabled Lobby console for pre-game identity assignment.</p>
                                     </div>
                                 </div>
                                 <div className="bg-zinc-900/40 p-10 border border-zinc-800 opacity-50 relative">
-                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">DEC 2025</div>
-                                    <h3 className="font-noir text-2xl text-zinc-400 font-bold mb-4 uppercase">Case File #04: Grid Stabilization</h3>
+                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">JAN 2026</div>
+                                    <h3 className="font-noir text-2xl text-zinc-400 font-bold mb-4 uppercase">Case File #05: The Overseer Patch</h3>
                                     <div className="font-typewriter text-zinc-600 space-y-4 text-sm">
-                                        <p>+ Initial deployment of Shadow Protocol.</p>
-                                        <p>+ Established frequency relay across global nodes.</p>
+                                        <p>+ Initial console dual-channel operation.</p>
+                                        <p>+ Implemented direct identity forcing.</p>
                                     </div>
                                 </div>
                             </div>
