@@ -9,11 +9,12 @@ const Lobby: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'AGENTS' | 'COMMS'>('AGENTS');
   const [chatMsg, setChatMsg] = useState('');
   const [filterSender, setFilterSender] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'IDLE' | 'COPIED'>('IDLE');
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   if (!state.user) return null;
 
-  const { isAdmin, isDeveloper, username } = state.user;
+  const { isAdmin, isDeveloper } = state.user;
   const { lobbyCode, players, logs } = state.game;
 
   useEffect(() => {
@@ -39,18 +40,24 @@ const Lobby: React.FC = () => {
       setChatMsg('');
   };
 
+  const handleCopyLink = () => {
+      if (!state.syncId) return;
+      const url = `${window.location.origin}${window.location.pathname}?sid=${state.syncId}`;
+      navigator.clipboard.writeText(url).then(() => {
+          setCopyStatus('COPIED');
+          setTimeout(() => setCopyStatus('IDLE'), 2000);
+      });
+  };
+
   const handleKick = (playerId: string) => {
-    if (confirm("KICK SUBJECT: Are you sure you want to remove this agent from the frequency?")) {
+    if (confirm("KICK SUBJECT: Are you sure you want to remove this agent?")) {
       dispatch({ type: 'KICK_PLAYER', payload: playerId });
     }
   };
 
-  // Extract unique senders from chat logs for the filter
   const chatLogs = logs.filter(l => l.type === 'chat');
   const uniqueSenders = Array.from(new Set(chatLogs.map(l => l.sender).filter(Boolean))) as string[];
-  const filteredLogs = filterSender 
-    ? chatLogs.filter(l => l.sender === filterSender)
-    : chatLogs;
+  const filteredLogs = filterSender ? chatLogs.filter(l => l.sender === filterSender) : chatLogs;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black w-full overflow-hidden">
@@ -58,31 +65,44 @@ const Lobby: React.FC = () => {
       
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-12 animate-fadeIn relative z-10">
         
-        {/* Session Details */}
+        {/* Connection Details */}
         <div className="bg-zinc-950/95 border border-zinc-900 p-10 flex flex-col shadow-2xl relative">
-            <div className="flex justify-between items-start mb-10">
+            <div className="absolute top-4 left-4 flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full border border-zinc-800 transition-all duration-300 ${state.syncId ? 'bg-green-500 shadow-[0_0_15px_#22c55e] animate-pulse' : 'bg-red-500 shadow-[0_0_15px_#ef4444]'}`} />
+                <span className="text-[9px] font-mono text-zinc-600 tracking-widest uppercase">{state.syncId ? 'LINK_STABLE' : 'SEARCHING...'}</span>
+            </div>
+
+            <div className="flex justify-between items-start mb-10 mt-6">
                 <div className="space-y-2">
                     <h2 className="text-6xl font-noir text-white tracking-tighter font-black">LOBBY</h2>
-                    <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${state.syncId ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500'}`} />
-                        <span className="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">Grid: {state.syncId ? 'ENCRYPTED' : 'ESTABLISHING...'}</span>
-                    </div>
+                    <div className="text-[10px] font-mono text-zinc-700 tracking-widest uppercase">Overseer: {state.isHost ? 'YOU' : 'REMOTELY_AUTHED'}</div>
                 </div>
-                <div className="text-right p-4 border border-zinc-900 bg-black">
+                <div className="text-right p-4 border border-zinc-900 bg-black min-w-[140px]">
                     <div className="text-[9px] font-mono text-zinc-700 uppercase tracking-widest mb-1">Frequency</div>
-                    <div className="text-3xl font-mono text-blood font-black tracking-widest">{lobbyCode || '----'}</div>
+                    <div className="text-3xl font-mono text-blood font-black tracking-widest leading-none">{lobbyCode || '----'}</div>
                 </div>
             </div>
 
-            <div className="flex-1 space-y-8">
-              <div className="p-4 bg-black/40 border border-zinc-900">
-                  <div className="text-[8px] font-mono text-zinc-700 uppercase tracking-[0.4em] mb-2">Classified Sync ID (Send to friends if Scan fails)</div>
-                  <div className="text-[10px] font-mono text-zinc-500 break-all select-all">{state.syncId || 'GENERATING_SERIAL...'}</div>
+            <div className="flex-1 space-y-6">
+              {/* Invite Section */}
+              <div className="bg-paper p-6 border-4 border-zinc-900 shadow-xl relative rotate-[-0.5deg]">
+                  <div className="absolute top-0 right-0 bg-blood text-white px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest">Urgent</div>
+                  <h3 className="font-noir font-black text-zinc-900 text-lg uppercase border-b border-zinc-400 mb-2">Classified Telegram</h3>
+                  <p className="font-typewriter text-[10px] text-zinc-800 mb-4 leading-tight italic">
+                    "Send the following cipher link to verified agents for immediate grid entry. Bypassing directory scan recommended for deep operations."
+                  </p>
+                  <button 
+                    onClick={handleCopyLink}
+                    disabled={!state.syncId}
+                    className={`w-full py-3 border-2 border-zinc-900 font-cinzel font-black text-[10px] tracking-[0.3em] uppercase transition-all ${copyStatus === 'COPIED' ? 'bg-blood text-white border-blood' : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-900 hover:text-white'}`}
+                  >
+                      {copyStatus === 'COPIED' ? 'INTEL_COPIED' : 'COPY_INVITE_LINK'}
+                  </button>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
                 {(isAdmin || isDeveloper) && (
-                    <button onClick={() => dispatch({ type: 'ADD_BOT' })} className="w-full py-4 border border-zinc-800 text-zinc-600 hover:text-white transition-all text-[10px] font-mono tracking-widest uppercase">+ INJECT ARTIFICIAL AGENT</button>
+                    <button onClick={() => dispatch({ type: 'ADD_BOT' })} className="w-full py-4 border border-zinc-800 text-zinc-600 hover:text-white transition-all text-[10px] font-mono tracking-widest uppercase hover:bg-zinc-900/40">+ INJECT ARTIFICIAL AGENT</button>
                 )}
                 <button onClick={() => dispatch({ type: 'LEAVE_LOBBY' })} className="w-full py-4 border border-zinc-800 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase">
                     [ ABORT FREQUENCY ]
@@ -96,9 +116,9 @@ const Lobby: React.FC = () => {
         </div>
 
         {/* Agents & Comms */}
-        <div className="flex flex-col h-[650px] border border-zinc-900 bg-[#080808] shadow-2xl overflow-hidden">
+        <div className="flex flex-col h-[650px] border border-zinc-900 bg-[#080808] shadow-2xl overflow-hidden relative">
            <div className="flex border-b border-zinc-900 bg-black">
-               <button onClick={() => setActiveTab('AGENTS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'AGENTS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Agents ({players.length})</button>
+               <button onClick={() => setActiveTab('AGENTS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'AGENTS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Verified Agents ({players.length})</button>
                <button onClick={() => setActiveTab('COMMS')} className={`flex-1 py-5 text-[10px] font-mono tracking-widest uppercase transition-colors ${activeTab === 'COMMS' ? 'text-white bg-zinc-900/40' : 'text-zinc-700 hover:text-zinc-500'}`}>Frequency Feed</button>
            </div>
            <div className="flex-1 flex flex-col overflow-hidden">
@@ -107,17 +127,20 @@ const Lobby: React.FC = () => {
                     {players.map(p => (
                         <div key={p.id} className="flex items-center justify-between p-4 bg-black border border-zinc-900 shadow-inner group transition-all hover:border-zinc-700">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 shrink-0">
+                                <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 shrink-0 relative">
                                     <img src={p.avatarUrl} className={`w-full h-full object-cover grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
+                                    {p.id === state.user?.id && <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-black" />}
                                 </div>
-                                <div className={`text-[12px] font-mono tracking-widest uppercase ${p.id === state.user?.id ? 'text-white' : 'text-zinc-600'}`}>{p.name}</div>
+                                <div className={`text-[12px] font-mono tracking-widest uppercase ${p.id === state.user?.id ? 'text-white font-bold' : 'text-zinc-600'}`}>
+                                  {p.name} {p.id === state.user?.id ? '(YOU)' : ''}
+                                </div>
                             </div>
                             {state.isHost && p.id !== state.user?.id && (
                                 <button 
                                     onClick={() => handleKick(p.id)}
                                     className="px-3 py-1 border border-zinc-900 text-zinc-800 hover:text-blood hover:border-blood text-[8px] font-mono tracking-widest uppercase transition-all"
                                 >
-                                    KICK
+                                    TERMINATE
                                 </button>
                             )}
                         </div>
@@ -125,23 +148,12 @@ const Lobby: React.FC = () => {
                   </div>
                ) : (
                   <div className="flex-1 flex flex-col h-full">
-                      {/* Message Filter Bar */}
+                      {/* Filter Bar */}
                       <div className="px-6 py-3 bg-black border-b border-zinc-900 flex items-center gap-3 overflow-x-auto scrollbar-hide shrink-0">
-                          <span className="text-[8px] font-mono text-zinc-700 uppercase tracking-widest whitespace-nowrap">Filter Intel:</span>
-                          <button 
-                            onClick={() => setFilterSender(null)}
-                            className={`px-3 py-1 text-[8px] font-mono border transition-all uppercase tracking-tighter ${!filterSender ? 'border-blood text-blood bg-blood/5' : 'border-zinc-900 text-zinc-600 hover:text-zinc-400'}`}
-                          >
-                            All_Freqs
-                          </button>
+                          <span className="text-[8px] font-mono text-zinc-700 uppercase tracking-widest whitespace-nowrap">Source:</span>
+                          <button onClick={() => setFilterSender(null)} className={`px-3 py-1 text-[8px] font-mono border transition-all uppercase tracking-tighter ${!filterSender ? 'border-blood text-blood bg-blood/5' : 'border-zinc-900 text-zinc-600 hover:text-zinc-400'}`}>Broadcast</button>
                           {uniqueSenders.map(sender => (
-                            <button 
-                              key={sender}
-                              onClick={() => setFilterSender(sender)}
-                              className={`px-3 py-1 text-[8px] font-mono border transition-all uppercase tracking-tighter whitespace-nowrap ${filterSender === sender ? 'border-blood text-blood bg-blood/5' : 'border-zinc-900 text-zinc-600 hover:text-zinc-400'}`}
-                            >
-                              {sender}
-                            </button>
+                            <button key={sender} onClick={() => setFilterSender(sender)} className={`px-3 py-1 text-[8px] font-mono border transition-all uppercase tracking-tighter whitespace-nowrap ${filterSender === sender ? 'border-blood text-blood bg-blood/5' : 'border-zinc-900 text-zinc-600 hover:text-zinc-400'}`}>{sender}</button>
                           ))}
                       </div>
 
@@ -149,13 +161,13 @@ const Lobby: React.FC = () => {
                         {filteredLogs.length === 0 ? (
                            <div className="h-full flex flex-col items-center justify-center opacity-20">
                                <div className="w-12 h-px bg-zinc-700 mb-4" />
-                               <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.4em]">Static_Interference</div>
+                               <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.4em]">Listening...</div>
                            </div>
                         ) : (
                           filteredLogs.map(log => (
-                              <div key={log.id} className="max-w-[80%] animate-fadeIn">
+                              <div key={log.id} className={`max-w-[85%] animate-fadeIn ${log.sender === state.user?.username ? 'ml-auto text-right' : ''}`}>
                                   <div className="text-[9px] text-zinc-700 font-mono mb-1 uppercase tracking-tighter">{log.sender}</div>
-                                  <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40">
+                                  <div className={`p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 ${log.sender === state.user?.username ? 'bg-zinc-900 border-blood/20' : 'bg-zinc-950 border-zinc-800'}`}>
                                       {log.text}
                                   </div>
                               </div>
@@ -163,8 +175,9 @@ const Lobby: React.FC = () => {
                         )}
                         <div ref={chatEndRef} />
                       </div>
-                      <form onSubmit={handleSendChat} className="p-4 bg-black border-t border-zinc-900">
-                          <input value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} placeholder="ENCRYPT MESSAGE..." className="w-full bg-zinc-900/50 border border-zinc-800 p-4 text-xs text-white outline-none focus:border-blood font-mono uppercase" />
+                      <form onSubmit={handleSendChat} className="p-4 bg-black border-t border-zinc-900 flex gap-2">
+                          <input value={chatMsg} onChange={(e) => setChatMsg(e.target.value)} placeholder="ENCRYPT MESSAGE..." className="flex-1 bg-zinc-900/50 border border-zinc-800 p-4 text-xs text-white outline-none focus:border-blood font-mono uppercase" />
+                          <button type="submit" className="px-6 bg-zinc-800 text-zinc-400 hover:text-white transition-all font-cinzel text-xs uppercase font-black">Transmit</button>
                       </form>
                   </div>
                )}
