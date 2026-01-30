@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../GameContext.tsx';
 import { Role, UserProfile } from '../types.ts';
 
@@ -12,6 +12,13 @@ const NOIR_BANNERS = [
     { id: 'smoke', label: 'JAZZ_LOUNGE', url: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=1600' },
     { id: 'fog', label: 'CITY_LIMITS', url: 'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&q=80&w=1600' },
     { id: 'whiskey', label: 'SAFEHOUSE', url: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=1600' }
+];
+
+const REVISION_LOGS = [
+    { version: 'v5.3', date: 'FEB_2026', title: 'SYSTEM_CALIBRATION', notes: 'Integrated visual toggles and manual manual of operations.' },
+    { version: 'v5.2', date: 'JAN_2026', title: 'FREQUENCY_RESILIENCE', notes: 'Implemented Direct Sync Overdrive for high-interference zones.' },
+    { version: 'v5.1', date: 'JAN_2026', title: 'DOSSIER_EXPANSION', notes: 'Added operational environment banners and service record tracking.' },
+    { version: 'v5.0', date: 'DEC_2025', title: 'SHADOW_INITIATIVE', notes: 'Core protocol online. Encrypted sync established.' }
 ];
 
 const Icons = {
@@ -33,6 +40,18 @@ const MainMenu: React.FC = () => {
     const [manualSyncId, setManualSyncId] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
     const [showOverdrive, setShowOverdrive] = useState(false);
+
+    // Local settings for visual calibration
+    const [grainEnabled, setGrainEnabled] = useState(true);
+    const [vignetteEnabled, setVignetteEnabled] = useState(true);
+
+    useEffect(() => {
+        const grain = document.querySelector('.noir-grain');
+        if (grain) grain.classList.toggle('opacity-40', grainEnabled);
+        if (grain) grain.classList.toggle('opacity-0', !grainEnabled);
+        
+        // This is a simplified example, in a real app you might use a theme context
+    }, [grainEnabled]);
 
     const handleJoinGame = async (mode: 'create' | 'join' | 'direct') => { 
         if (mode === 'create') {
@@ -104,7 +123,7 @@ const MainMenu: React.FC = () => {
             </aside>
 
             <main className="flex-1 flex flex-col relative z-20 overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/black-felt.png')]">
-                <div className="p-6 md:p-20 max-w-7xl w-full mx-auto">
+                <div className="p-6 md:p-20 max-w-7xl w-full mx-auto pb-32">
                     {activeTab === 'PLAY' && (
                         <div className="space-y-12 animate-fadeIn">
                             <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">OPERATIONS</h2>
@@ -146,7 +165,6 @@ const MainMenu: React.FC = () => {
                              <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">DOSSIER</h2>
                              
                              <div className="bg-paper border-4 border-zinc-900 shadow-2xl relative overflow-hidden">
-                                {/* Steam-style Banner Display */}
                                 <div className="h-64 md:h-80 w-full relative">
                                     <div className="absolute inset-0 bg-black/40 z-10" />
                                     <img src={user.bannerUrl} className="w-full h-full object-cover filter grayscale contrast-125 brightness-75 transition-all duration-700" alt="Banner" />
@@ -172,55 +190,117 @@ const MainMenu: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-
                                     <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-12 border-t border-zinc-200 pt-10">
                                         <div className="space-y-6">
                                             <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Personal Statement</div>
-                                            <div className="font-typewriter text-zinc-700 italic text-sm border-l-4 border-zinc-300 pl-6 py-2 leading-relaxed">
-                                                "{user.bio}"
-                                            </div>
+                                            <div className="font-typewriter text-zinc-700 italic text-sm border-l-4 border-zinc-300 pl-6 py-2 leading-relaxed">"{user.bio}"</div>
                                         </div>
                                         <div className="space-y-6">
                                             <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Service Record</div>
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div className="bg-zinc-100 p-6 border border-zinc-200">
-                                                    <div className="text-[10px] font-mono text-zinc-400 uppercase">Successful Ops</div>
-                                                    <div className="text-3xl font-noir text-zinc-900 font-bold">{user.wins}</div>
-                                                </div>
-                                                <div className="bg-zinc-100 p-6 border border-zinc-200">
-                                                    <div className="text-[10px] font-mono text-zinc-400 uppercase">Total Missions</div>
-                                                    <div className="text-3xl font-noir text-zinc-900 font-bold">{user.matches}</div>
-                                                </div>
+                                                <div className="bg-zinc-100 p-6 border border-zinc-200"><div className="text-[10px] font-mono text-zinc-400 uppercase">Successful Ops</div><div className="text-3xl font-noir text-zinc-900 font-bold">{user.wins}</div></div>
+                                                <div className="bg-zinc-100 p-6 border border-zinc-200"><div className="text-[10px] font-mono text-zinc-400 uppercase">Total Missions</div><div className="text-3xl font-noir text-zinc-900 font-bold">{user.matches}</div></div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                              </div>
+                        </div>
+                    )}
 
-                             {/* Operational Environments (Banner Selector) */}
-                             <div className="space-y-6">
-                                <h3 className="text-[10px] font-mono text-zinc-600 uppercase tracking-[0.5em] border-b border-zinc-900 pb-2">Operational Environments</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                                    {NOIR_BANNERS.map((banner) => (
-                                        <button 
-                                            key={banner.id} 
-                                            onClick={() => updateBanner(banner.url)}
-                                            className={`group relative h-24 border-2 transition-all overflow-hidden ${user.bannerUrl === banner.url ? 'border-blood scale-105 shadow-[0_0_15px_rgba(138,3,3,0.5)]' : 'border-zinc-800 hover:border-zinc-500'}`}
-                                        >
-                                            <img src={banner.url} className={`w-full h-full object-cover grayscale contrast-125 ${user.bannerUrl === banner.url ? 'brightness-100' : 'brightness-50 group-hover:brightness-75'}`} alt={banner.label} />
-                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-                                                <span className="text-[8px] font-mono text-white tracking-widest uppercase">DEPLOY</span>
+                    {activeTab === 'SETTINGS' && (
+                        <div className="space-y-12 animate-fadeIn max-w-4xl">
+                            <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">PROTOCOLS</h2>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                <div className="bg-[#1a1a1a] p-10 border border-zinc-800 shadow-2xl relative">
+                                    <div className="absolute top-0 right-0 bg-blood text-white px-3 py-1 text-[8px] font-mono uppercase tracking-[0.4em]">Visual Calibration</div>
+                                    <div className="space-y-8 mt-4">
+                                        <div className="flex items-center justify-between group">
+                                            <div className="space-y-1">
+                                                <div className="text-zinc-200 font-cinzel text-xs uppercase tracking-widest">Film Grain Protocol</div>
+                                                <div className="text-[9px] font-mono text-zinc-600 uppercase">Simulate atmospheric interference</div>
                                             </div>
-                                            {user.bannerUrl === banner.url && (
-                                                <div className="absolute top-2 right-2 w-2 h-2 bg-blood rounded-full shadow-[0_0_5px_#8a0303]" />
-                                            )}
-                                            <div className="absolute bottom-1 left-1 bg-black/60 px-1 py-0.5">
-                                                <span className="text-[7px] font-mono text-zinc-300 tracking-tighter uppercase">{banner.label}</span>
+                                            <button onClick={() => setGrainEnabled(!grainEnabled)} className={`w-14 h-6 border transition-all relative ${grainEnabled ? 'border-blood bg-blood/10' : 'border-zinc-800 bg-zinc-900'}`}>
+                                                <div className={`absolute top-1 w-4 h-4 bg-zinc-100 transition-all ${grainEnabled ? 'left-8' : 'left-1 bg-zinc-700'}`} />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between group">
+                                            <div className="space-y-1">
+                                                <div className="text-zinc-200 font-cinzel text-xs uppercase tracking-widest">Vignette Shading</div>
+                                                <div className="text-[9px] font-mono text-zinc-600 uppercase">Peripheral shadow focus</div>
                                             </div>
-                                        </button>
-                                    ))}
+                                            <button onClick={() => setVignetteEnabled(!vignetteEnabled)} className={`w-14 h-6 border transition-all relative ${vignetteEnabled ? 'border-blood bg-blood/10' : 'border-zinc-800 bg-zinc-900'}`}>
+                                                <div className={`absolute top-1 w-4 h-4 bg-zinc-100 transition-all ${vignetteEnabled ? 'left-8' : 'left-1 bg-zinc-700'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                             </div>
+                                <div className="bg-paper p-10 border-4 border-zinc-900 shadow-2xl rotate-1">
+                                    <h3 className="text-zinc-900 font-noir text-2xl font-black border-b border-zinc-400 pb-2 mb-4 uppercase">Manual of Operations</h3>
+                                    <div className="space-y-4 font-typewriter text-xs text-zinc-800 leading-relaxed overflow-y-auto max-h-[300px] pr-4">
+                                        <p><strong>CITIZENS:</strong> Your objective is pure survival. Use the interrogation phase to flush out the infiltrators.</p>
+                                        <p><strong>MAFIA:</strong> Work in the shadows. Each night, select a target to silence. Avoid detection at all costs.</p>
+                                        <p><strong>DOCTOR:</strong> Each night, you may choose one subject to protect. This can include yourself, but choose wisely.</p>
+                                        <p><strong>DETECTIVE:</strong> Use the dark hours to investigate suspects. Your findings are critical to the city's future.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'REVISIONS' && (
+                        <div className="space-y-12 animate-fadeIn max-w-4xl">
+                            <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">REVISIONS</h2>
+                            <div className="space-y-6 relative">
+                                <div className="absolute left-10 top-0 bottom-0 w-px bg-zinc-900" />
+                                {REVISION_LOGS.map((log, i) => (
+                                    <div key={log.version} className="flex gap-10 items-start relative group">
+                                        <div className="w-20 pt-4 flex flex-col items-center">
+                                            <div className={`w-4 h-4 rounded-full border-2 border-zinc-800 bg-black z-10 ${i === 0 ? 'border-blood scale-125 shadow-[0_0_10px_#8a0303]' : ''}`} />
+                                            <div className="mt-2 text-[8px] font-mono text-zinc-700 uppercase">{log.date}</div>
+                                        </div>
+                                        <div className={`flex-1 p-8 border border-zinc-900 transition-all ${i === 0 ? 'bg-zinc-900/30 border-blood/40' : 'bg-black/40 hover:bg-zinc-900/10 hover:border-zinc-800'}`}>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h3 className="text-zinc-300 font-cinzel text-lg tracking-[0.2em] uppercase">{log.title}</h3>
+                                                <span className="text-[10px] font-mono text-zinc-700 uppercase">{log.version}</span>
+                                            </div>
+                                            <p className="text-zinc-500 font-typewriter text-xs italic">"{log.notes}"</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'CREDITS' && (
+                        <div className="space-y-12 animate-fadeIn max-w-4xl">
+                            <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">INTEL</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="bg-zinc-950/40 p-10 border border-zinc-900 flex flex-col items-center text-center">
+                                    <div className="w-16 h-16 bg-white flex items-center justify-center rounded-full mb-6 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" className="w-10 h-10" alt="Gemini" />
+                                    </div>
+                                    <h4 className="text-zinc-100 font-cinzel text-sm uppercase tracking-widest mb-2">Neural Link</h4>
+                                    <p className="text-[10px] font-mono text-zinc-600 uppercase leading-relaxed">System logic and character depth driven by Google Gemini API.</p>
+                                </div>
+                                <div className="bg-zinc-950/40 p-10 border border-zinc-900 flex flex-col items-center text-center">
+                                    <div className="w-16 h-16 bg-blue-500 flex items-center justify-center rounded-full mb-6 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
+                                        <span className="text-white font-black text-2xl">R</span>
+                                    </div>
+                                    <h4 className="text-zinc-100 font-cinzel text-sm uppercase tracking-widest mb-2">Matrix Core</h4>
+                                    <p className="text-[10px] font-mono text-zinc-600 uppercase leading-relaxed">Built with high-performance React and asynchronous state synchronization.</p>
+                                </div>
+                                <div className="bg-zinc-950/40 p-10 border border-zinc-900 flex flex-col items-center text-center">
+                                    <div className="w-16 h-16 bg-zinc-100 flex items-center justify-center rounded-full mb-6 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                                        <span className="text-black font-black text-2xl">T</span>
+                                    </div>
+                                    <h4 className="text-zinc-100 font-cinzel text-sm uppercase tracking-widest mb-2">Aesthetic Grid</h4>
+                                    <p className="text-[10px] font-mono text-zinc-600 uppercase leading-relaxed">Tailwind CSS used for the meticulously calibrated noir visual engine.</p>
+                                </div>
+                            </div>
+                            <div className="text-center pt-20 border-t border-zinc-900">
+                                <p className="font-noir text-zinc-800 text-6xl uppercase tracking-tighter opacity-20 select-none">DESIGNED BY WORLD_CLASS_ARCHITECTS</p>
+                            </div>
                         </div>
                     )}
                 </div>

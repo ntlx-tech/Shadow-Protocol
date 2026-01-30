@@ -8,6 +8,7 @@ const Lobby: React.FC = () => {
   const { state, dispatch, generateBotChat } = useGame();
   const [activeTab, setActiveTab] = useState<'AGENTS' | 'COMMS'>('AGENTS');
   const [chatMsg, setChatMsg] = useState('');
+  const [filterSender, setFilterSender] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   if (!state.user) return null;
@@ -27,7 +28,9 @@ const Lobby: React.FC = () => {
     return () => clearInterval(interval);
   }, [players.length, generateBotChat]);
 
-  useEffect(() => { if(activeTab === 'COMMS') chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs.length, activeTab]);
+  useEffect(() => { 
+    if(activeTab === 'COMMS') chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [logs.length, activeTab, filterSender]);
 
   const handleSendChat = (e: React.FormEvent) => {
       e.preventDefault();
@@ -41,6 +44,13 @@ const Lobby: React.FC = () => {
       dispatch({ type: 'KICK_PLAYER', payload: playerId });
     }
   };
+
+  // Extract unique senders from chat logs for the filter
+  const chatLogs = logs.filter(l => l.type === 'chat');
+  const uniqueSenders = Array.from(new Set(chatLogs.map(l => l.sender).filter(Boolean))) as string[];
+  const filteredLogs = filterSender 
+    ? chatLogs.filter(l => l.sender === filterSender)
+    : chatLogs;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen z-10 relative px-4 py-8 bg-black w-full overflow-hidden">
@@ -97,7 +107,9 @@ const Lobby: React.FC = () => {
                     {players.map(p => (
                         <div key={p.id} className="flex items-center justify-between p-4 bg-black border border-zinc-900 shadow-inner group transition-all hover:border-zinc-700">
                             <div className="flex items-center gap-4">
-                                <img src={p.avatarUrl} className={`w-12 h-12 grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
+                                <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 shrink-0">
+                                    <img src={p.avatarUrl} className={`w-full h-full object-cover grayscale filter brightness-75 transition-all group-hover:grayscale-0 ${p.isBot ? 'opacity-50' : ''}`} alt="A" />
+                                </div>
                                 <div className={`text-[12px] font-mono tracking-widest uppercase ${p.id === state.user?.id ? 'text-white' : 'text-zinc-600'}`}>{p.name}</div>
                             </div>
                             {state.isHost && p.id !== state.user?.id && (
@@ -113,15 +125,42 @@ const Lobby: React.FC = () => {
                   </div>
                ) : (
                   <div className="flex-1 flex flex-col h-full">
+                      {/* Message Filter Bar */}
+                      <div className="px-6 py-3 bg-black border-b border-zinc-900 flex items-center gap-3 overflow-x-auto scrollbar-hide shrink-0">
+                          <span className="text-[8px] font-mono text-zinc-700 uppercase tracking-widest whitespace-nowrap">Filter Intel:</span>
+                          <button 
+                            onClick={() => setFilterSender(null)}
+                            className={`px-3 py-1 text-[8px] font-mono border transition-all uppercase tracking-tighter ${!filterSender ? 'border-blood text-blood bg-blood/5' : 'border-zinc-900 text-zinc-600 hover:text-zinc-400'}`}
+                          >
+                            All_Freqs
+                          </button>
+                          {uniqueSenders.map(sender => (
+                            <button 
+                              key={sender}
+                              onClick={() => setFilterSender(sender)}
+                              className={`px-3 py-1 text-[8px] font-mono border transition-all uppercase tracking-tighter whitespace-nowrap ${filterSender === sender ? 'border-blood text-blood bg-blood/5' : 'border-zinc-900 text-zinc-600 hover:text-zinc-400'}`}
+                            >
+                              {sender}
+                            </button>
+                          ))}
+                      </div>
+
                       <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                        {logs.filter(l => l.type === 'chat').map(log => (
-                            <div key={log.id} className="max-w-[80%] animate-fadeIn">
-                                <div className="text-[9px] text-zinc-700 font-mono mb-1 uppercase tracking-tighter">{log.sender}</div>
-                                <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40">
-                                    {log.text}
-                                </div>
-                            </div>
-                        ))}
+                        {filteredLogs.length === 0 ? (
+                           <div className="h-full flex flex-col items-center justify-center opacity-20">
+                               <div className="w-12 h-px bg-zinc-700 mb-4" />
+                               <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.4em]">Static_Interference</div>
+                           </div>
+                        ) : (
+                          filteredLogs.map(log => (
+                              <div key={log.id} className="max-w-[80%] animate-fadeIn">
+                                  <div className="text-[9px] text-zinc-700 font-mono mb-1 uppercase tracking-tighter">{log.sender}</div>
+                                  <div className="bg-zinc-900 p-4 text-zinc-400 text-xs font-typewriter italic border-l-2 border-blood/40">
+                                      {log.text}
+                                  </div>
+                              </div>
+                          ))
+                        )}
                         <div ref={chatEndRef} />
                       </div>
                       <form onSubmit={handleSendChat} className="p-4 bg-black border-t border-zinc-900">
