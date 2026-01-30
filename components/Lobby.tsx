@@ -73,15 +73,19 @@ const Lobby: React.FC = () => {
                 )}
                 <button 
                     onClick={() => dispatch({ type: 'LEAVE_LOBBY' })}
-                    className="w-full py-4 border border-zinc-900 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase"
+                    className="w-full py-4 border border-zinc-800 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase"
                 >
                     [ LEAVE TERMINAL ]
                 </button>
               </div>
             </div>
 
-            <button onClick={() => dispatch({type: 'START_GAME'})} className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl disabled:opacity-50">
-                {state.isHost ? "INITIATE PROTOCOL" : "WAITING FOR OVERSEER"}
+            <button 
+                onClick={() => dispatch({type: 'START_GAME'})} 
+                disabled={players.length < 3 && !isDeveloper}
+                className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+                {state.isHost ? (players.length < 3 && !isDeveloper ? "AWAITING ASSETS (MIN 3)" : "INITIATE PROTOCOL") : "WAITING FOR OVERSEER"}
             </button>
         </div>
 

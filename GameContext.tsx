@@ -6,7 +6,7 @@ import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v5_data';
 const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
-// Updated to a persistent shared directory for lobby routing
+// A fresh, persistent shared directory for lobby routing
 const DIRECTORY_BLOB_ID = '1334657159740514304'; 
 
 interface AppState {
@@ -95,7 +95,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       newState = { ...state, user: found || state.user };
       break;
     case 'LOGOUT_USER':
-      newState = { ...state, user: null, game: initialState.game, syncId: null, isHost: false };
+      newState = { ...state, user: null, game: { ...initialState.game }, syncId: null, isHost: false };
       break;
     case 'UPDATE_PROFILE':
       if (!state.user) return state;
@@ -226,6 +226,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             if (state.isHost) {
                 if (!state.syncId) {
+                    // Create the initial game blob
                     const res = await fetch(SYNC_RELAY_URL, { 
                       method: 'POST', 
                       body: JSON.stringify(state.game), 
@@ -236,14 +237,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         const id = blobUrl.split('/').pop()!;
                         dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
                         
-                        // Robust Directory update
+                        // Immediately register in directory to avoid join errors
                         try {
                             const dirRes = await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`);
                             let directory = {};
                             if (dirRes.ok) {
                                 try { directory = await dirRes.json(); } catch(e) { directory = {}; }
                             }
-                            
                             directory[state.game.lobbyCode!] = id;
                             await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`, { 
                                 method: 'PUT', 
@@ -255,6 +255,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         }
                     }
                 } else {
+                    // Periodic update of current game state
                     await fetch(`${SYNC_RELAY_URL}/${state.syncId}`, { 
                       method: 'PUT', 
                       body: JSON.stringify(state.game), 
@@ -262,9 +263,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     });
                 }
             } else if (state.syncId) {
+                // Joiner fetching current state
                 const res = await fetch(`${SYNC_RELAY_URL}/${state.syncId}`);
                 if (res.ok) {
                     const remoteGame = await res.json();
+                    // Auto-join if not in players list
                     const meInRemote = remoteGame.players.find((p: any) => p.id === state.user?.id);
                     if (!meInRemote && state.user) {
                        const me: Player = { id: state.user.id, name: state.user.username, role: Role.VILLAGER, status: PlayerStatus.ALIVE, isBot: false, avatarUrl: state.user.avatarUrl, forcedRole: null };
