@@ -10,7 +10,9 @@ const Icons = {
     Dossier: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" /><path d="M8.5 11C10.7091 11 12.5 9.20914 12.5 7C12.5 4.79086 10.7091 3 8.5 3C6.29086 3 4.5 4.79086 4.5 7C4.5 9.20914 6.29086 11 8.5 11Z" /><path d="M17 11H23M17 15H23M17 7H23" strokeLinecap="round" /></svg>,
     Protocols: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>,
     Revisions: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 17L11 13L9 13L12 9L15 13L13 13L13 17L11 17Z" /><path d="M12 2L12 6M12 18L12 22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" strokeLinecap="round" /></svg>,
-    Intel: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 19V9C22 7.89543 21.1046 7 20 7H11.8284C11.298 7 10.7893 6.78929 10.4142 6.41421L8.58579 4.58579C8.21071 4.21071 7.70199 4 7.17157 4H4C2.89543 4 2 4.89543 2 6V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19Z" /><path d="M12 11V17M9 14H15" strokeLinecap="round" /></svg>
+    Intel: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 19V9C22 7.89543 21.1046 7 20 7H11.8284C11.298 7 10.7893 6.78929 10.4142 6.41421L8.58579 4.58579C8.21071 4.21071 7.70199 4 7.17157 4H4C2.89543 4 2 4.89543 2 6V19C2 20.1046 2.89543 21 4 21H20C21.1046 21 22 20.1046 22 19Z" /><path d="M12 11V17M9 14H15" strokeLinecap="round" /></svg>,
+    /* FIX: Changed strokeJoin to strokeLinejoin as per React SVG property requirements */
+    Logout: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round"/></svg>
 };
 
 const DIRECTORY_BLOB_ID = '1334657159740514304'; 
@@ -28,8 +30,9 @@ const MainMenu: React.FC = () => {
         } else {
             setIsSyncing(true);
             try {
-                // Look up the directory for the syncId
                 const res = await fetch(`https://jsonblob.com/api/jsonBlob/${DIRECTORY_BLOB_ID}`);
+                if (!res.ok) throw new Error("DIRECTORY_UNREACHABLE");
+                
                 const directory = await res.json();
                 const syncId = directory[joinCode.toUpperCase()];
                 
@@ -39,10 +42,10 @@ const MainMenu: React.FC = () => {
                         payload: { isHost: false, lobbyCode: joinCode.toUpperCase(), syncId } 
                     });
                 } else {
-                    alert("FREQUENCY_NOT_FOUND: The code provided does not match any active terminal.");
+                    alert("FREQUENCY_NOT_FOUND: Code '" + joinCode.toUpperCase() + "' is not active on the grid.");
                 }
             } catch (e) {
-                alert("GRID_ERROR: Interference detected. Try again.");
+                alert("GRID_INTERFERENCE: System failed to interrogate the global switchboard. Check your connection.");
             } finally {
                 setIsSyncing(false);
             }
@@ -72,8 +75,15 @@ const MainMenu: React.FC = () => {
                         </button>
                     ))}
                 </nav>
-                <div className="p-8 border-t border-zinc-900/40 text-center">
-                    <div className="text-[8px] font-mono text-zinc-700 tracking-widest uppercase">SYNC_VER: GLOBAL_V2.1</div>
+                <div className="p-4 border-t border-zinc-900/40">
+                    <button 
+                        onClick={() => dispatch({ type: 'LOGOUT_USER' })}
+                        className="w-full flex items-center justify-center md:justify-start gap-4 px-3 md:px-6 py-4 rounded-sm transition-all text-zinc-700 hover:text-blood group"
+                    >
+                        <span><Icons.Logout /></span>
+                        <span className="hidden md:inline font-cinzel text-[10px] tracking-widest uppercase group-hover:font-black">TERMINATE SESSION</span>
+                    </button>
+                    <div className="mt-4 text-[8px] font-mono text-zinc-800 text-center tracking-widest uppercase">SYNC_VER: GLOBAL_V2.2_STABLE</div>
                 </div>
             </aside>
 
@@ -94,7 +104,7 @@ const MainMenu: React.FC = () => {
                                     <div className="flex gap-4">
                                         <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="XXXX" className="w-24 md:w-36 bg-black border border-zinc-800 p-4 text-center font-mono text-white text-xl uppercase outline-none focus:border-blood" maxLength={4} />
                                         <button onClick={() => handleJoinGame('join')} disabled={joinCode.length < 4 || isSyncing} className="flex-1 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest disabled:opacity-50">
-                                            {isSyncing ? "SYNCING..." : "SYNC"}
+                                            {isSyncing ? "SCANNING..." : "SYNC"}
                                         </button>
                                     </div>
                                 </div>
@@ -185,7 +195,7 @@ const MainMenu: React.FC = () => {
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs font-mono text-zinc-500 uppercase">Frequency Relay</span>
-                                            <span className="text-[10px] font-mono text-zinc-600 uppercase">v2.1-DIR</span>
+                                            <span className="text-[10px] font-mono text-zinc-600 uppercase">v2.2-HUB</span>
                                         </div>
                                     </div>
                                 </div>
@@ -198,21 +208,21 @@ const MainMenu: React.FC = () => {
                             <h2 className="text-5xl md:text-8xl font-noir text-white tracking-tighter uppercase font-black border-b border-zinc-900 pb-10">REVISIONS</h2>
                             <div className="space-y-10">
                                 <div className="bg-zinc-900/40 p-10 border border-zinc-800 border-l-4 border-l-blood relative">
-                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">FEB 2026</div>
-                                    <h3 className="font-noir text-2xl text-white font-bold mb-4 uppercase">Case File #06: The Synchronization Hub</h3>
+                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">MAR 2026</div>
+                                    <h3 className="font-noir text-2xl text-white font-bold mb-4 uppercase">Case File #07: The Abort Protocols</h3>
                                     <div className="font-typewriter text-zinc-500 space-y-4 text-sm">
-                                        <p>+ Unified 4-digit code directory for multi-device play.</p>
-                                        <p>+ Locked down UI to prevent accidental text selection.</p>
-                                        <p>+ Fixed Overseer bias bug in Lobby phase.</p>
-                                        <p>+ Enabled Lobby console for pre-game identity assignment.</p>
+                                        <p>+ Implemented multi-stage exit buttons for terminal detachment.</p>
+                                        <p>+ Hardened global directory linking for better friend-sync.</p>
+                                        <p>+ Resolved session persistence leaks when changing identities.</p>
+                                        <p>+ Integrated logout/terminate functionality in operations base.</p>
                                     </div>
                                 </div>
                                 <div className="bg-zinc-900/40 p-10 border border-zinc-800 opacity-50 relative">
-                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">JAN 2026</div>
-                                    <h3 className="font-noir text-2xl text-zinc-400 font-bold mb-4 uppercase">Case File #05: The Overseer Patch</h3>
+                                    <div className="absolute top-10 right-10 text-[10px] font-mono text-zinc-700">FEB 2026</div>
+                                    <h3 className="font-noir text-2xl text-zinc-400 font-bold mb-4 uppercase">Case File #06: The Synchronization Hub</h3>
                                     <div className="font-typewriter text-zinc-600 space-y-4 text-sm">
-                                        <p>+ Initial console dual-channel operation.</p>
-                                        <p>+ Implemented direct identity forcing.</p>
+                                        <p>+ Unified 4-digit code directory for multi-device play.</p>
+                                        <p>+ Locked down UI to prevent accidental text selection.</p>
                                     </div>
                                 </div>
                             </div>

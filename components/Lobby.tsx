@@ -67,9 +67,17 @@ const Lobby: React.FC = () => {
                   </div>
               </div>
 
-              {(isAdmin || isDeveloper) && (
-                <button onClick={() => dispatch({ type: 'ADD_BOT' })} className="w-full py-4 border border-zinc-800 text-zinc-600 hover:text-white transition-all text-[10px] font-mono tracking-widest uppercase">+ INJECT ARTIFICIAL AGENT</button>
-              )}
+              <div className="grid grid-cols-1 gap-4">
+                {(isAdmin || isDeveloper) && (
+                    <button onClick={() => dispatch({ type: 'ADD_BOT' })} className="w-full py-4 border border-zinc-800 text-zinc-600 hover:text-white transition-all text-[10px] font-mono tracking-widest uppercase">+ INJECT ARTIFICIAL AGENT</button>
+                )}
+                <button 
+                    onClick={() => dispatch({ type: 'LEAVE_LOBBY' })}
+                    className="w-full py-4 border border-zinc-900 text-zinc-700 hover:text-blood hover:border-blood transition-all text-[10px] font-mono tracking-widest uppercase"
+                >
+                    [ LEAVE TERMINAL ]
+                </button>
+              </div>
             </div>
 
             <button onClick={() => dispatch({type: 'START_GAME'})} className="w-full py-6 mt-12 bg-zinc-100 text-black font-cinzel font-black hover:bg-blood hover:text-white transition-all uppercase tracking-widest text-sm shadow-2xl disabled:opacity-50">

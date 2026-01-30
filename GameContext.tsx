@@ -6,7 +6,7 @@ import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v5_data';
 const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
-// A fresh shared directory ID for frequency interception
+// Updated to a persistent shared directory for lobby routing
 const DIRECTORY_BLOB_ID = '1334657159740514304'; 
 
 interface AppState {
@@ -60,6 +60,7 @@ const initialState: AppState = {
 type Action =
   | { type: 'REGISTER_USER'; payload: UserProfile }
   | { type: 'LOGIN_USER'; payload: string }
+  | { type: 'LOGOUT_USER' }
   | { type: 'UPDATE_PROFILE'; payload: Partial<UserProfile> }
   | { type: 'JOIN_LOBBY'; payload: { lobbyCode?: string; isHost: boolean; syncId?: string } }
   | { type: 'SYNC_GAME_STATE'; payload: GameState }
@@ -93,6 +94,9 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       const found = state.profiles.find(p => p.username.toLowerCase() === action.payload.toLowerCase());
       newState = { ...state, user: found || state.user };
       break;
+    case 'LOGOUT_USER':
+      newState = { ...state, user: null, game: initialState.game, syncId: null, isHost: false };
+      break;
     case 'UPDATE_PROFILE':
       if (!state.user) return state;
       const updated = { ...state.user, ...action.payload };
@@ -113,7 +117,7 @@ const gameReducer = (state: AppState, action: Action): AppState => {
         break;
     case 'LEAVE_LOBBY':
     case 'RESET_GAME':
-      newState = { ...state, game: { ...state.game, phase: GamePhase.MENU, lobbyCode: null, players: [] }, syncId: null, isHost: false };
+      newState = { ...state, game: { ...initialState.game, phase: GamePhase.MENU }, syncId: null, isHost: false };
       break;
     case 'ADD_BOT':
       const bName = BOT_NAMES.find(n => !state.game.players.some(p => p.name === n)) || "Agent X";
@@ -216,7 +220,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!state.game.lobbyCode) return;
+    if (!state.game.lobbyCode || state.game.phase === GamePhase.MENU) return;
 
     const performSync = async () => {
         try {
@@ -232,11 +236,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         const id = blobUrl.split('/').pop()!;
                         dispatch({ type: 'JOIN_LOBBY', payload: { isHost: true, syncId: id, lobbyCode: state.game.lobbyCode! } });
                         
-                        // Directory fallback initialization
+                        // Robust Directory update
                         try {
                             const dirRes = await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`);
                             let directory = {};
-                            if (dirRes.ok) directory = await dirRes.json();
+                            if (dirRes.ok) {
+                                try { directory = await dirRes.json(); } catch(e) { directory = {}; }
+                            }
                             
                             directory[state.game.lobbyCode!] = id;
                             await fetch(`${SYNC_RELAY_URL}/${DIRECTORY_BLOB_ID}`, { 
@@ -245,7 +251,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 headers: { 'Content-Type': 'application/json' } 
                             });
                         } catch (dirErr) {
-                            console.warn("Directory sync warning - non-critical for host", dirErr);
+                            console.error("Critical: Directory sync failed", dirErr);
                         }
                     }
                 } else {
@@ -274,17 +280,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     syncTimer.current = window.setInterval(performSync, 3000);
     return () => { if(syncTimer.current) clearInterval(syncTimer.current); };
-  }, [state.game.lobbyCode, state.isHost, state.syncId, state.game]);
+  }, [state.game.lobbyCode, state.isHost, state.syncId, state.game, state.game.phase]);
 
   const generateBotChat = async (botName: string) => {
     try {
-      // Corrected: Initializing GoogleGenAI using process.env.API_KEY directly as per Gemini API guidelines.
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const res = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `You are ${botName}, a noir 1920s mafia character. Send a short, one-sentence cryptic chat message in character.`,
       });
-      // Corrected: Accessing text property directly from GenerateContentResponse as per guidelines.
       dispatch({ type: 'SEND_CHAT', payload: res.text || "The city never sleeps." });
     } catch (e) {
       console.error("AI Error:", e);

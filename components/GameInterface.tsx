@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../GameContext';
 import { GamePhase, Role, PlayerStatus } from '../types';
@@ -80,11 +81,22 @@ const GameInterface: React.FC = () => {
                      {getPhaseTitle()}
                  </h1>
              </div>
-             <div className="flex items-center space-x-3">
-                 <div className={`w-2 h-2 rounded-full ${isNight ? 'bg-blue-500 shadow-[0_0_10px_#3b82f6]' : isVoting ? 'bg-blood animate-pulse shadow-[0_0_15px_#8a0303]' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]'}`}></div>
-                 <span className="text-[10px] font-mono text-zinc-500 tracking-widest uppercase">
-                    {isNight ? "Channel Encrypted" : isVoting ? "High Tension" : "Public Archive"}
-                 </span>
+             
+             <div className="flex items-center space-x-6">
+                 <button 
+                    onClick={() => { if(confirm("ABORT MISSION: Are you sure you want to exit the active grid?")) dispatch({ type: 'RESET_GAME' }); }}
+                    className="group flex flex-col items-center"
+                 >
+                    <span className="text-[8px] font-mono text-zinc-700 tracking-widest uppercase mb-1 group-hover:text-blood">Detach</span>
+                    <div className="px-3 py-1 border border-zinc-800 text-zinc-600 group-hover:border-blood group-hover:text-blood font-cinzel text-[9px] tracking-widest">EXIT</div>
+                 </button>
+                 <div className="h-8 w-px bg-zinc-900"></div>
+                 <div className="flex items-center space-x-3">
+                     <div className={`w-2 h-2 rounded-full ${isNight ? 'bg-blue-500 shadow-[0_0_10px_#3b82f6]' : isVoting ? 'bg-blood animate-pulse shadow-[0_0_15px_#8a0303]' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]'}`}></div>
+                     <span className="hidden md:inline text-[10px] font-mono text-zinc-500 tracking-widest uppercase">
+                        {isNight ? "Encrypted" : isVoting ? "Hostile" : "Clear"}
+                     </span>
+                 </div>
              </div>
         </div>
 
