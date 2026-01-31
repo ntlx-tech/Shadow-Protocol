@@ -228,6 +228,57 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sid) dispatch({ type: 'JOIN_LOBBY', payload: { isHost: false, syncId: sid, lobbyCode: 'CIPHER' } });
   }, [state.user, state.game.phase]);
 
+  // AI Logic: Bots Play the Game
+  useEffect(() => {
+    if (!state.isHost) return;
+    const { phase, players } = state.game;
+    const aliveBots = players.filter(p => p.isBot && p.status === PlayerStatus.ALIVE);
+    if (aliveBots.length === 0) return;
+
+    // AI Night Actions
+    if (phase === GamePhase.NIGHT) {
+        const timeoutId = setTimeout(() => {
+            aliveBots.forEach(bot => {
+                const targets = players.filter(p => p.status === PlayerStatus.ALIVE);
+                const otherTargets = targets.filter(p => p.id !== bot.id);
+                let targetId = '';
+
+                if (bot.role === Role.MAFIA) {
+                    const nonMafia = otherTargets.filter(p => p.role !== Role.MAFIA);
+                    if (nonMafia.length > 0) targetId = nonMafia[Math.floor(Math.random() * nonMafia.length)].id;
+                } else if (bot.role === Role.DOCTOR) {
+                    // 50% chance to save self, 50% random other
+                    if (Math.random() > 0.5) targetId = bot.id;
+                    else if (otherTargets.length > 0) targetId = otherTargets[Math.floor(Math.random() * otherTargets.length)].id;
+                } else if (bot.role === Role.COP) {
+                     if (otherTargets.length > 0) targetId = otherTargets[Math.floor(Math.random() * otherTargets.length)].id;
+                }
+
+                if (targetId) {
+                    dispatch({ type: 'SET_NIGHT_ACTION', payload: { role: bot.role, targetId } });
+                }
+            });
+        }, 2500 + Math.random() * 2000); // Random delay 2.5-4.5s
+        return () => clearTimeout(timeoutId);
+    }
+
+    // AI Voting
+    if (phase === GamePhase.VOTING) {
+        const timeoutId = setTimeout(() => {
+            aliveBots.forEach(bot => {
+                const candidates = players.filter(p => p.status === PlayerStatus.ALIVE && p.id !== bot.id);
+                if (candidates.length > 0) {
+                    const target = candidates[Math.floor(Math.random() * candidates.length)];
+                    dispatch({ type: 'CAST_VOTE', payload: { voterId: bot.id, targetId: target.id } });
+                }
+            });
+        }, 3000 + Math.random() * 3000);
+        return () => clearTimeout(timeoutId);
+    }
+
+  }, [state.game.phase, state.isHost]); // Only re-run on phase change to avoid loop
+
+  // Sync Logic
   useEffect(() => {
     if (!state.game.lobbyCode || state.game.phase === GamePhase.MENU) return;
 
@@ -280,16 +331,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const generateBotChat = async (botName: string) => {
     try {
-      // Safely access env
       const key = process.env.API_KEY || '';
       if (!key) return; 
 
       const ai = new GoogleGenAI({ apiKey: key });
+      const context = `You are ${botName}, a character in a 1920s Mafia game. 
+      Phase: ${state.game.phase}. 
+      Day: ${state.game.dayCount}. 
+      Alive players: ${state.game.players.filter(p => p.status === PlayerStatus.ALIVE).map(p => p.name).join(', ')}.
+      Recent events: ${state.game.logs.slice(-3).map(l => l.text).join('. ')}.
+      Speak briefly, suspiciously, or accusingly in 1 sentence. Use noir slang.`;
+
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `You are ${botName}, a noir 1920s mafia character. Send a short, one-sentence cryptic chat message about the current game.`,
+        model: 'gemini-2.5-flash-latest',
+        contents: context,
       });
-      dispatch({ type: 'SEND_CHAT', payload: response.text || "Quiet night." });
+      dispatch({ type: 'SEND_CHAT', payload: response.text || "Something smells fishy..." });
     } catch (e) {}
   };
 

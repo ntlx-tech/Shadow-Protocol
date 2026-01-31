@@ -46,8 +46,8 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-black relative z-10 overflow-hidden p-6 w-full">
-      <div className="vignette fixed inset-0 pointer-events-none" />
+    <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a] relative z-10 overflow-hidden p-6 w-full">
+      {/* Removed the fixed vignette overlay here to clear up the view */}
       <div className="w-full max-w-md p-10 bg-zinc-950/90 backdrop-blur-md border border-zinc-900 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative">
         <div className="text-center mb-8">
            <h1 className="text-5xl font-noir font-bold text-zinc-100 tracking-wider mb-2">SHADOW</h1>
