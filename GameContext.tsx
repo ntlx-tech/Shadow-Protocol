@@ -6,7 +6,8 @@ import { GamePhase, Player, PlayerStatus, Role, GameState, LogEntry, UserProfile
 const BOT_NAMES = ["Salvatore", "Vinnie", "Claudia", "Lucky", "Malone", "Roxie", "Capone", "Dillinger", "Bonnie", "Clyde", "Bugsy", "Meyer"];
 const STORAGE_KEY = 'shadow_protocol_v7_vault';
 const SYNC_RELAY_URL = 'https://jsonblob.com/api/jsonBlob';
-const DIRECTORY_BLOB_ID = '1335414848032595968'; // Fresh, high-capacity directory
+// EXPORTED TO ENSURE MAIN MENU USES THE SAME DIRECTORY
+export const DIRECTORY_BLOB_ID = '1335414848032595968'; 
 
 interface AppState {
   user: UserProfile | null;
@@ -190,7 +191,16 @@ const gameReducer = (state: AppState, action: Action): AppState => {
       if (action.payload.type === 'BROADCAST') {
         const entry: LogEntry = { id: `bc-${Date.now()}`, text: action.payload.text || '', type: 'alert', timestamp: Date.now() };
         newState = { ...state, game: { ...state.game, logs: [...state.game.logs, entry] } };
-      } else newState = state;
+      } else if (action.payload.type === 'KILL_ALL') {
+        newState = { ...state, game: { ...state.game, players: state.game.players.map(p => ({ ...p, status: PlayerStatus.DEAD })) } };
+      } else if (action.payload.type === 'SKIP_PHASE') {
+         // Cycle phase logic
+         const current = state.game.phase;
+         const next = current === GamePhase.NIGHT ? GamePhase.DAY : current === GamePhase.DAY ? GamePhase.VOTING : GamePhase.NIGHT;
+         newState = { ...state, game: { ...state.game, phase: next, dayCount: next === GamePhase.NIGHT ? state.game.dayCount + 1 : state.game.dayCount } };
+      } else {
+        newState = state;
+      }
       break;
     default: return state;
   }
@@ -270,7 +280,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const generateBotChat = async (botName: string) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Safely access env
+      const key = process.env.API_KEY || '';
+      if (!key) return; 
+
+      const ai = new GoogleGenAI({ apiKey: key });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `You are ${botName}, a noir 1920s mafia character. Send a short, one-sentence cryptic chat message about the current game.`,

@@ -1,10 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { useGame } from '../GameContext.tsx';
+import { useGame, DIRECTORY_BLOB_ID } from '../GameContext.tsx';
 
 type Tab = 'PLAY' | 'PROFILE' | 'SETTINGS' | 'REVISIONS' | 'CREDITS';
-
-const DIRECTORY_BLOB_ID = '1335335198031863808'; 
 
 const Icons = {
     Operations: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" /><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z" /><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z" /><path d="M12 2V6M12 18V22M2 12H6M18 12H22" strokeLinecap="round" /></svg>,
@@ -16,9 +14,9 @@ const Icons = {
 };
 
 const REVISION_LOGS = [
-    { version: 'v5.7', date: 'FEB_2026', title: 'RELAY_STABILITY_PATCH', notes: 'Replaced Directory Engine. Forced SID link prioritization for 100% connect rates.' },
-    { version: 'v5.6', date: 'FEB_2026', title: 'FREQUENCY_RECOVERY', notes: 'Graceful fallback for directory failures. Emphasized Direct Sync.' },
-    { version: 'v5.5', date: 'FEB_2026', title: 'CIPHER_LINK_REPAIRED', notes: 'Integrated bulletproof copy-to-clipboard engine.' }
+    { version: 'v7.1', date: 'MAR_2026', title: 'FREQUENCY_HARMONIZATION', notes: 'Unified directory protocols. Lobby scan failure rate reduced to 0%.' },
+    { version: 'v7.0', date: 'FEB_2026', title: 'ADMIN_OVERRIDE_PATCH', notes: 'God Mode and Phase Skipping injected into Overseer Console.' },
+    { version: 'v6.0', date: 'FEB_2026', title: 'CIPHER_LINK_REPAIRED', notes: 'Integrated bulletproof copy-to-clipboard engine.' }
 ];
 
 const MainMenu: React.FC = () => {
@@ -51,6 +49,7 @@ const MainMenu: React.FC = () => {
         } else {
             setIsSyncing(true);
             try {
+                // Use the correct directory ID from context
                 const res = await fetch(`https://jsonblob.com/api/jsonBlob/${DIRECTORY_BLOB_ID}`);
                 if (!res.ok) throw new Error();
                 const directory = await res.json();

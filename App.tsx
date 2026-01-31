@@ -21,7 +21,16 @@ const GameContainer: React.FC = () => {
   return (
     <div className="relative w-full h-full">
       <div className={`fixed inset-0 bg-black z-[100] transition-opacity duration-200 pointer-events-none ${isBlackout ? 'opacity-100' : 'opacity-0'}`}>
-         {isBlackout && <div className="absolute inset-0 flex items-center justify-center text-zinc-800 font-cinzel animate-pulse">SYSTEM MALFUNCTION</div>}
+         {isBlackout && (
+             <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
+                 <div className="text-zinc-800 font-cinzel text-3xl animate-[flicker_0.2s_infinite] tracking-[0.5em] font-black uppercase shadow-blood drop-shadow-[0_0_10px_rgba(138,3,3,0.5)]">
+                     SYSTEM MALFUNCTION
+                 </div>
+                 <div className="text-blood font-mono text-[10px] animate-pulse tracking-widest">
+                     CONNECTION_SEVERED_BY_OVERSEER
+                 </div>
+             </div>
+         )}
       </div>
 
       {game.phase === GamePhase.MENU && <MainMenu />}
