@@ -2,7 +2,8 @@
 export default {
   content: [
     "./index.html",
-    "./**/*.{js,ts,jsx,tsx}",
+    "./*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
@@ -14,12 +15,17 @@ export default {
       colors: {
         blood: '#8a0303',
         paper: '#f5f0e1',
-        charcoal: '#121212',
+        charcoal: '#1a1a1a', // Slightly lighter than previous
+        zinc: {
+          850: '#1f1f22',
+          900: '#18181b',
+          950: '#09090b',
+        }
       },
       animation: {
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'flicker': 'flicker 2s infinite',
-        'fadeIn': 'fadeIn 1s ease-out forwards',
+        'flicker': 'flicker 3s infinite',
+        'fadeIn': 'fadeIn 0.8s ease-out forwards',
       },
       keyframes: {
         flicker: {

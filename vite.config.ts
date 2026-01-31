@@ -9,6 +9,16 @@ export default defineConfig(({ mode }) => {
       // Netlify injects env vars at build time; this passes them to the client
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
       'process.env': {}
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            genai: ['@google/genai']
+          }
+        }
+      }
     }
   }
 })
